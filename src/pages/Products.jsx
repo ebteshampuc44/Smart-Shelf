@@ -123,7 +123,6 @@ const Products = () => {
     try {
       await categoriesApi.delete(id);
       setCategories(categories.filter(c => c.id !== id));
-      // Refresh products as some may become uncategorized
       fetchData();
     } catch (error) {
       console.error('Failed to delete category:', error);
@@ -351,10 +350,14 @@ const Products = () => {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 700 }}>
             <thead>
               <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
-                {['Product', 'Category', 'Stock', 'Price', 'Expiry', 'Status', 'Actions'].map(h => (
-                  <th key={h} style={{ padding: '12px 14px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#64748b' }}>{h}</th>
-                ))}
-              <tr>
+                <th style={{ padding: '12px 14px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#64748b' }}>Product</th>
+                <th style={{ padding: '12px 14px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#64748b' }}>Category</th>
+                <th style={{ padding: '12px 14px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#64748b' }}>Stock</th>
+                <th style={{ padding: '12px 14px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#64748b' }}>Price</th>
+                <th style={{ padding: '12px 14px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#64748b' }}>Expiry</th>
+                <th style={{ padding: '12px 14px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#64748b' }}>Status</th>
+                <th style={{ padding: '12px 14px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#64748b' }}>Actions</th>
+              </tr>
             </thead>
             <tbody>
               {filtered.map(p => {
@@ -614,6 +617,12 @@ const Products = () => {
           </div>
         </div>
       )}
+
+      <style>{`
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   );
 };
