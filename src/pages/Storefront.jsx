@@ -1,32 +1,52 @@
+// src/pages/Storefront.jsx
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { storefront as storefrontApi } from '../services/api';
 
-// ── helpers ──────────────────────────────────────────────────────────────────
-const slugify = (str) =>
-  (str || '').toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-
-// ── sub-components ────────────────────────────────────────────────────────────
-const StockBadge = ({ status }) => {
-  const map = {
-    ok:  { label: 'In Stock',     bg: '#dcfce7', color: '#15803d', dot: '#22c55e' },
-    low: { label: 'Low Stock',    bg: '#fef9c3', color: '#a16207', dot: '#eab308' },
-    out: { label: 'Out of Stock', bg: '#fee2e2', color: '#b91c1c', dot: '#ef4444' },
-  };
-  const s = map[status] || map.ok;
+const StockBadge = ({ product }) => {
+  const isOut = product.stock_quantity === 0;
+  const isLow = product.is_low_stock && !isOut;
+  
+  if (isOut) {
+    return (
+      <span style={{
+        display: 'inline-flex', alignItems: 'center', gap: 5,
+        background: '#fee2e2', color: '#b91c1c',
+        padding: '4px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700,
+      }}>
+        <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#ef4444', display: 'inline-block' }} />
+        Out of Stock
+      </span>
+    );
+  }
+  
+  if (isLow) {
+    return (
+      <span style={{
+        display: 'inline-flex', alignItems: 'center', gap: 5,
+        background: '#fef9c3', color: '#a16207',
+        padding: '4px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700,
+      }}>
+        <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#eab308', display: 'inline-block' }} />
+        Low Stock
+      </span>
+    );
+  }
+  
   return (
     <span style={{
       display: 'inline-flex', alignItems: 'center', gap: 5,
-      background: s.bg, color: s.color,
+      background: '#dcfce7', color: '#15803d',
       padding: '4px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700,
     }}>
-      <span style={{ width: 6, height: 6, borderRadius: '50%', background: s.dot, display: 'inline-block' }} />
-      {s.label}
+      <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#22c55e', display: 'inline-block' }} />
+      In Stock
     </span>
   );
 };
 
 const ProductCard = ({ product }) => {
-  const isOut = product.status === 'out';
+  const isOut = product.stock_quantity === 0;
   return (
     <div style={{
       background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14,
@@ -46,74 +66,95 @@ const ProductCard = ({ product }) => {
         e.currentTarget.style.transform = 'none';
       }}
     >
-      {/* Product image placeholder */}
       <div style={{
         height: 90, borderRadius: 10, background: 'linear-gradient(135deg, #eff6ff, #dbeafe)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         fontSize: 36,
       }}>
-        🛒
+        {product.image_url ? (
+          <img src={product.image_url} alt={product.name} style={{ height: 80, width: 'auto', objectFit: 'contain', borderRadius: 8 }} />
+        ) : (
+          '🛒'
+        )}
       </div>
 
       <div>
         <div style={{ fontSize: 14, fontWeight: 700, color: '#0f172a', marginBottom: 2 }}>{product.name}</div>
-        <div style={{ fontSize: 12, color: '#64748b' }}>{product.category}</div>
+        <div style={{ fontSize: 12, color: '#64748b' }}>{product.category?.name || 'Uncategorized'}</div>
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div style={{ fontSize: 16, fontWeight: 800, color: '#2563eb' }}>{product.price}</div>
-        <StockBadge status={product.status} />
+        <div style={{ fontSize: 16, fontWeight: 800, color: '#2563eb' }}>${parseFloat(product.price).toFixed(2)}</div>
+        <StockBadge product={product} />
       </div>
 
-      {product.notes && (
-        <div style={{ fontSize: 11, color: '#94a3b8', fontStyle: 'italic' }}>{product.notes}</div>
+      {product.description && (
+        <div style={{ fontSize: 11, color: '#94a3b8', fontStyle: 'italic' }}>{product.description.slice(0, 80)}</div>
       )}
     </div>
   );
 };
 
-// ── main ──────────────────────────────────────────────────────────────────────
 const Storefront = () => {
   const { retailerName } = useParams();
-  const [allUsers, setAllUsers] = useState([]);
+  const [retailer, setRetailer] = useState(null);
   const [products, setProducts] = useState([]);
   const [search, setSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState('All');
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [categories, setCategories] = useState(['All']);
+  const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
-    // Load all registered users to find matching store
-    const users = JSON.parse(localStorage.getItem('smartshelf_users') || '[]');
-    setAllUsers(users);
+    const fetchStorefront = async () => {
+      setLoading(true);
+      try {
+        // Fetch retailer info
+        const retailerRes = await storefrontApi.getStore(retailerName);
+        const retailerData = retailerRes.data.data;
+        setRetailer(retailerData);
+        
+        // Fetch products for this store
+        const productsRes = await storefrontApi.getStoreProducts(retailerName, { per_page: 100 });
+        const productList = productsRes.data.data.data || [];
+        setProducts(productList);
+        
+        // Extract unique categories
+        const uniqueCats = [...new Set(productList.map(p => p.category?.name).filter(Boolean))];
+        setCategories(['All', ...uniqueCats]);
+        
+        setNotFound(false);
+      } catch (error) {
+        console.error('Failed to fetch storefront:', error);
+        setNotFound(true);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-    // Load products
-    const prods = JSON.parse(localStorage.getItem('smartshelf_products') || '[]');
-    setProducts(prods);
-  }, []);
-
-  // Find the retailer by slug
-  const retailer = useMemo(() => {
-    return allUsers.find(u => slugify(u.storeName) === retailerName) || null;
-  }, [allUsers, retailerName]);
-
-  const categories = useMemo(() => {
-    const cats = [...new Set(products.map(p => p.category).filter(Boolean))];
-    return ['All', ...cats];
-  }, [products]);
+    fetchStorefront();
+  }, [retailerName]);
 
   const filtered = useMemo(() => {
     return products.filter(p => {
       const matchSearch = !search ||
         p.name.toLowerCase().includes(search.toLowerCase()) ||
-        (p.category || '').toLowerCase().includes(search.toLowerCase());
-      const matchCat = activeCategory === 'All' || p.category === activeCategory;
-      const matchStatus = statusFilter === 'all' || p.status === statusFilter;
-      return matchSearch && matchCat && matchStatus;
+        (p.category?.name || '').toLowerCase().includes(search.toLowerCase());
+      const matchCat = activeCategory === 'All' || p.category?.name === activeCategory;
+      return matchSearch && matchCat;
     });
-  }, [products, search, activeCategory, statusFilter]);
+  }, [products, search, activeCategory]);
 
-  // 404 — store not found
-  if (allUsers.length > 0 && !retailer) {
+  if (loading) {
+    return (
+      <div style={{ minHeight: '100vh', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ width: 40, height: 40, border: '3px solid #e2e8f0', borderTop: '3px solid #2563eb', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
+  }
+
+  if (notFound || !retailer) {
     return (
       <div style={{
         minHeight: '100vh', background: '#f8fafc',
@@ -127,10 +168,7 @@ const Storefront = () => {
     );
   }
 
-  const displayRetailer = retailer || {
-    storeName: retailerName?.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) || 'Store',
-    location: '', phone: '', hours: '',
-  };
+  const inStockCount = products.filter(p => p.stock_quantity > 0).length;
 
   return (
     <div style={{ minHeight: '100vh', background: '#f1f5f9' }}>
@@ -155,20 +193,26 @@ const Storefront = () => {
           fontSize: 26, margin: '0 auto 14px',
           border: '2px solid rgba(255,255,255,0.3)',
         }}>
-          🛒
+          {retailer.logo_url ? (
+            <img src={retailer.logo_url} alt={retailer.store_name} style={{ width: 56, height: 56, borderRadius: '50%', objectFit: 'cover' }} />
+          ) : (
+            '🛒'
+          )}
         </div>
         <h1 style={{ color: '#fff', fontSize: 26, fontWeight: 800, margin: '0 0 8px', letterSpacing: '-0.3px' }}>
-          {displayRetailer.storeName}
+          {retailer.store_name}
         </h1>
+        
+        {retailer.description && (
+          <p style={{ color: 'rgba(255,255,255,0.85)', fontSize: 14, maxWidth: 500, margin: '0 auto' }}>{retailer.description}</p>
+        )}
+        
         <div style={{ display: 'flex', justifyContent: 'center', gap: 20, flexWrap: 'wrap', marginTop: 10 }}>
-          {displayRetailer.location && (
-            <span style={{ color: 'rgba(255,255,255,0.75)', fontSize: 13 }}>📍 {displayRetailer.location}</span>
+          {retailer.suburb && (
+            <span style={{ color: 'rgba(255,255,255,0.75)', fontSize: 13 }}>📍 {retailer.suburb}, {retailer.state} {retailer.postcode}</span>
           )}
-          {displayRetailer.phone && (
-            <span style={{ color: 'rgba(255,255,255,0.75)', fontSize: 13 }}>📞 {displayRetailer.phone}</span>
-          )}
-          {displayRetailer.hours && (
-            <span style={{ color: 'rgba(255,255,255,0.75)', fontSize: 13 }}>🕐 {displayRetailer.hours}</span>
+          {retailer.phone && (
+            <span style={{ color: 'rgba(255,255,255,0.75)', fontSize: 13 }}>📞 {retailer.phone}</span>
           )}
         </div>
 
@@ -179,7 +223,7 @@ const Storefront = () => {
         }}>
           {[
             ['📦', products.length, 'Products'],
-            ['✅', products.filter(p => p.status === 'ok').length, 'In Stock'],
+            ['✅', inStockCount, 'In Stock'],
             ['📂', categories.length - 1, 'Categories'],
           ].map(([icon, val, label]) => (
             <div key={label} style={{ textAlign: 'center' }}>
@@ -205,37 +249,28 @@ const Storefront = () => {
               background: '#fff',
             }}
           />
-          <select
-            value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
-            style={{
-              padding: '10px 14px', border: '1.5px solid #e5e7eb', borderRadius: 10,
-              fontSize: 13, color: '#475569', background: '#fff', outline: 'none', cursor: 'pointer',
-            }}
-          >
-            <option value="all">All Availability</option>
-            <option value="ok">In Stock Only</option>
-            <option value="low">Low Stock</option>
-          </select>
         </div>
 
         {/* Category tabs */}
-        <div style={{ display: 'flex', gap: 8, marginBottom: 22, flexWrap: 'wrap' }}>
-          {categories.map(cat => (
-            <button
-              key={cat}
-              onClick={() => setActiveCategory(cat)}
-              style={{
-                padding: '7px 16px', borderRadius: 20, border: '1.5px solid',
-                borderColor: activeCategory === cat ? '#2563eb' : '#e2e8f0',
-                background: activeCategory === cat ? '#eff6ff' : '#fff',
-                color: activeCategory === cat ? '#2563eb' : '#64748b',
-                fontSize: 13, fontWeight: 600, cursor: 'pointer',
-              }}
-            >
-              {cat}
-            </button>
-          ))}
-        </div>
+        {categories.length > 1 && (
+          <div style={{ display: 'flex', gap: 8, marginBottom: 22, flexWrap: 'wrap' }}>
+            {categories.map(cat => (
+              <button
+                key={cat}
+                onClick={() => setActiveCategory(cat)}
+                style={{
+                  padding: '7px 16px', borderRadius: 20, border: '1.5px solid',
+                  borderColor: activeCategory === cat ? '#2563eb' : '#e2e8f0',
+                  background: activeCategory === cat ? '#eff6ff' : '#fff',
+                  color: activeCategory === cat ? '#2563eb' : '#64748b',
+                  fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                }}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Products grid */}
         {products.length === 0 ? (
@@ -251,8 +286,8 @@ const Storefront = () => {
         ) : (
           <div style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
-            gap: 16,
+            gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
+            gap: 20,
           }}>
             {filtered.map(p => (
               <ProductCard key={p.id} product={p} />
@@ -261,7 +296,7 @@ const Storefront = () => {
         )}
 
         {/* Contact CTA */}
-        {(displayRetailer.phone || displayRetailer.location) && (
+        {(retailer.phone || retailer.suburb) && (
           <div style={{
             marginTop: 40, background: '#fff', borderRadius: 14,
             border: '1px solid #e2e8f0', padding: '24px',
@@ -270,11 +305,11 @@ const Storefront = () => {
           }}>
             <div>
               <div style={{ fontSize: 16, fontWeight: 700, color: '#0f172a', marginBottom: 4 }}>Want to order or enquire?</div>
-              <div style={{ fontSize: 13, color: '#64748b' }}>Contact {displayRetailer.storeName} directly to place an order or check availability.</div>
+              <div style={{ fontSize: 13, color: '#64748b' }}>Contact {retailer.store_name} directly to place an order or check availability.</div>
             </div>
             <div style={{ display: 'flex', gap: 10 }}>
-              {displayRetailer.phone && (
-                <a href={`tel:${displayRetailer.phone}`} style={{
+              {retailer.phone && (
+                <a href={`tel:${retailer.phone}`} style={{
                   padding: '10px 20px', background: '#2563eb', color: '#fff',
                   borderRadius: 10, fontSize: 14, fontWeight: 700, textDecoration: 'none',
                 }}>

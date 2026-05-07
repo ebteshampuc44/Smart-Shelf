@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+// src/pages/Products.jsx
+import React, { useState, useEffect, useCallback } from 'react';
+import { products as productsApi, categories as categoriesApi } from '../services/api';
 
-// ── helpers ──────────────────────────────────────────────────────────────────
 const computeStatus = (stock, threshold) => {
   const s = Number(stock);
   const t = Number(threshold) || 10;
@@ -16,11 +17,10 @@ const daysLeft = (dateStr) => {
 
 const fmt = (n) => (n == null ? '—' : n < 0 ? 'Expired' : n === 0 ? 'Today' : `${n}d`);
 
-// ── sub-components ────────────────────────────────────────────────────────────
 const Badge = ({ status }) => {
   const map = {
-    ok:  { label: 'In Stock',     bg: '#dcfce7', color: '#15803d' },
-    low: { label: 'Low Stock',    bg: '#fef9c3', color: '#a16207' },
+    ok: { label: 'In Stock', bg: '#dcfce7', color: '#15803d' },
+    low: { label: 'Low Stock', bg: '#fef9c3', color: '#a16207' },
     out: { label: 'Out of Stock', bg: '#fee2e2', color: '#b91c1c' },
   };
   const s = map[status] || map.ok;
@@ -32,111 +32,167 @@ const Badge = ({ status }) => {
   );
 };
 
-// ── main ──────────────────────────────────────────────────────────────────────
 const Products = () => {
   const [products, setProducts] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [showModal, setShowModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
-  const [showHistory, setShowHistory] = useState(null); // product id
+  const [showHistory, setShowHistory] = useState(null);
   const [isMobile, setIsMobile] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [updatingStock, setUpdatingStock] = useState(null);
 
   const emptyForm = {
-    name: '', category: '', sku: '', stock: '', maxStock: '',
-    lowThreshold: '', price: '', expiryDate: '', notes: '',
+    name: '',
+    description: '',
+    category_id: '',
+    price: '',
+    stock_quantity: '',
+    low_stock_threshold: '5',
+    expiry_date: '',
+    image_url: '',
+    is_visible: true,
   };
   const [form, setForm] = useState(emptyForm);
 
+  // Fetch products and categories
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [productsRes, categoriesRes] = await Promise.all([
+        productsApi.getAll({ per_page: 100 }),
+        categoriesApi.getAll(),
+      ]);
+      setProducts(productsRes.data.data.data || []);
+      setCategories(categoriesRes.data.data || []);
+    } catch (error) {
+      console.error('Failed to fetch products:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
-    const raw = localStorage.getItem('smartshelf_products');
-    if (raw) setProducts(JSON.parse(raw));
+    fetchData();
     const check = () => setIsMobile(window.innerWidth < 768);
     check();
     window.addEventListener('resize', check);
     return () => window.removeEventListener('resize', check);
-  }, []);
+  }, [fetchData]);
 
-  const save = (list) => {
-    setProducts(list);
-    localStorage.setItem('smartshelf_products', JSON.stringify(list));
-    // trigger dashboard re-read
-    window.dispatchEvent(new Event('storage'));
+  const handleCreate = async (e) => {
+    e.preventDefault();
+    try {
+      const submitData = {
+        ...form,
+        price: parseFloat(form.price),
+        stock_quantity: parseInt(form.stock_quantity),
+        low_stock_threshold: parseInt(form.low_stock_threshold) || 5,
+        category_id: form.category_id ? parseInt(form.category_id) : null,
+      };
+      
+      const response = await productsApi.create(submitData);
+      setProducts([response.data.data, ...products]);
+      setShowModal(false);
+      resetForm();
+    } catch (error) {
+      console.error('Failed to create product:', error);
+      alert(error.response?.data?.errors?.join(', ') || 'Failed to create product');
+    }
   };
 
-  const filtered = products.filter(p => {
-    const matchSearch = p.name.toLowerCase().includes(search.toLowerCase()) ||
-      (p.sku || '').toLowerCase().includes(search.toLowerCase()) ||
-      (p.category || '').toLowerCase().includes(search.toLowerCase());
-    const matchStatus = filterStatus === 'all' || p.status === filterStatus;
-    return matchSearch && matchStatus;
-  });
+  const handleUpdate = async (e) => {
+    e.preventDefault();
+    try {
+      const submitData = {
+        ...form,
+        price: parseFloat(form.price),
+        low_stock_threshold: parseInt(form.low_stock_threshold) || 5,
+        category_id: form.category_id ? parseInt(form.category_id) : null,
+      };
+      
+      const response = await productsApi.update(editingProduct.id, submitData);
+      setProducts(products.map(p => p.id === editingProduct.id ? response.data.data : p));
+      setShowModal(false);
+      resetForm();
+    } catch (error) {
+      console.error('Failed to update product:', error);
+      alert(error.response?.data?.errors?.join(', ') || 'Failed to update product');
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm('Delete this product? This action cannot be undone.')) return;
+    try {
+      await productsApi.delete(id);
+      setProducts(products.filter(p => p.id !== id));
+    } catch (error) {
+      console.error('Failed to delete product:', error);
+      alert('Failed to delete product');
+    }
+  };
+
+  const updateStock = async (id, newStock) => {
+    const quantity = Math.max(0, parseInt(newStock) || 0);
+    setUpdatingStock(id);
+    try {
+      const response = await productsApi.updateStock(id, quantity, 'Stock updated from dashboard');
+      setProducts(products.map(p => p.id === id ? response.data.data : p));
+    } catch (error) {
+      console.error('Failed to update stock:', error);
+      alert('Failed to update stock');
+    } finally {
+      setUpdatingStock(null);
+    }
+  };
 
   const openModal = (product = null) => {
-    setEditingProduct(product);
-    setForm(product ? {
-      name: product.name || '', category: product.category || '',
-      sku: product.sku || '', stock: product.stock ?? '',
-      maxStock: product.maxStock || '', lowThreshold: product.lowThreshold || '',
-      price: product.price || '', expiryDate: product.expiryDate || '',
-      notes: product.notes || '',
-    } : emptyForm);
+    if (product) {
+      setEditingProduct(product);
+      setForm({
+        name: product.name || '',
+        description: product.description || '',
+        category_id: product.category_id || '',
+        price: product.price || '',
+        stock_quantity: product.stock_quantity || '',
+        low_stock_threshold: product.low_stock_threshold || '5',
+        expiry_date: product.expiry_date || '',
+        image_url: product.image_url || '',
+        is_visible: product.is_visible !== false,
+      });
+    } else {
+      setEditingProduct(null);
+      resetForm();
+    }
     setShowModal(true);
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    const stockNum = Number(form.stock);
-    const status = computeStatus(stockNum, form.lowThreshold || 10);
-    const now = new Date().toISOString();
-
-    if (editingProduct) {
-      const oldStock = editingProduct.stock;
-      const historyEntry = oldStock !== stockNum
-        ? { date: now, from: oldStock, to: stockNum, action: 'edit' }
-        : null;
-      const updated = products.map(p => p.id === editingProduct.id ? {
-        ...p, ...form,
-        stock: stockNum, maxStock: Number(form.maxStock) || 0,
-        lowThreshold: Number(form.lowThreshold) || 10,
-        status,
-        history: historyEntry ? [...(p.history || []), historyEntry] : (p.history || []),
-        updatedAt: now,
-      } : p);
-      save(updated);
-    } else {
-      const newProduct = {
-        id: Date.now(), ...form,
-        stock: stockNum, maxStock: Number(form.maxStock) || 0,
-        lowThreshold: Number(form.lowThreshold) || 10,
-        status, history: [{ date: now, from: 0, to: stockNum, action: 'created' }],
-        createdAt: now, updatedAt: now,
-      };
-      save([...products, newProduct]);
-    }
-    setShowModal(false);
+  const resetForm = () => {
+    setForm(emptyForm);
   };
 
-  const handleDelete = (id) => {
-    if (window.confirm('Delete this product?')) save(products.filter(p => p.id !== id));
-  };
+  const filtered = products.filter(p => {
+    const matchSearch = search === '' || 
+      p.name.toLowerCase().includes(search.toLowerCase()) ||
+      (p.sku || '').toLowerCase().includes(search.toLowerCase()) ||
+      (p.category?.name || '').toLowerCase().includes(search.toLowerCase());
+    
+    let matchStatus = true;
+    if (filterStatus === 'low') matchStatus = p.is_low_stock && p.stock_quantity > 0;
+    else if (filterStatus === 'out') matchStatus = p.stock_quantity === 0;
+    else if (filterStatus === 'ok') matchStatus = !p.is_low_stock && p.stock_quantity > 0;
+    
+    return matchSearch && matchStatus;
+  });
 
-  const updateStock = (id, newStock) => {
-    const now = new Date().toISOString();
-    save(products.map(p => {
-      if (p.id !== id) return p;
-      const s = Math.max(0, Number(newStock));
-      const status = computeStatus(s, p.lowThreshold);
-      const lastStock = p.stock;
-      return {
-        ...p, stock: s, status,
-        history: [...(p.history || []), { date: now, from: lastStock, to: s, action: 'stock_update' }],
-        updatedAt: now,
-      };
-    }));
+  const statusCounts = {
+    all: products.length,
+    ok: products.filter(p => !p.is_low_stock && p.stock_quantity > 0).length,
+    low: products.filter(p => p.is_low_stock && p.stock_quantity > 0).length,
+    out: products.filter(p => p.stock_quantity === 0).length,
   };
-
-  const setField = (f) => (e) => setForm(prev => ({ ...prev, [f]: e.target.value }));
 
   const inputStyle = {
     width: '100%', padding: '10px 12px', border: '1.5px solid #e5e7eb',
@@ -145,12 +201,14 @@ const Products = () => {
   };
   const labelStyle = { display: 'block', marginBottom: 6, fontSize: 12, fontWeight: 600, color: '#374151' };
 
-  const statusCounts = {
-    all: products.length,
-    ok: products.filter(p => p.status === 'ok').length,
-    low: products.filter(p => p.status === 'low').length,
-    out: products.filter(p => p.status === 'out').length,
-  };
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 400 }}>
+        <div style={{ width: 40, height: 40, border: '3px solid #e2e8f0', borderTop: '3px solid #2563eb', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -162,7 +220,7 @@ const Products = () => {
         </div>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <input
-            type="text" placeholder="Search name, SKU, category…"
+            type="text" placeholder="Search name, category…"
             value={search} onChange={e => setSearch(e.target.value)}
             style={{ padding: '9px 14px', border: '1.5px solid #e5e7eb', borderRadius: 10, fontSize: 13, width: 220, color: '#0f172a', outline: 'none', boxSizing: 'border-box' }}
           />
@@ -207,20 +265,21 @@ const Products = () => {
         </div>
       ) : (
         <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14, overflow: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 800 }}>
             <thead>
               <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
-                {['Product', 'Category', 'SKU', 'Stock', 'Price', 'Expiry', 'Status', 'Actions'].map(h => (
+                {['Product', 'Category', 'Stock', 'Price', 'Expiry', 'Status', 'Actions'].map(h => (
                   <th key={h} style={{ padding: '12px 14px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#64748b', whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {filtered.map(p => {
-                const pct = p.maxStock > 0 ? Math.min(100, Math.round((p.stock / p.maxStock) * 100)) : 0;
-                const barColor = p.status === 'ok' ? '#22c55e' : p.status === 'low' ? '#f59e0b' : '#ef4444';
-                const days = daysLeft(p.expiryDate);
+                const pct = p.low_stock_threshold > 0 ? Math.min(100, Math.round((p.stock_quantity / p.low_stock_threshold) * 100)) : 0;
+                const barColor = p.stock_quantity === 0 ? '#ef4444' : p.is_low_stock ? '#f59e0b' : '#22c55e';
+                const days = daysLeft(p.expiry_date);
                 const expiryColor = days === null ? '#94a3b8' : days < 0 ? '#dc2626' : days <= 3 ? '#d97706' : days <= 7 ? '#ca8a04' : '#16a34a';
+                const isUpdating = updatingStock === p.id;
 
                 return (
                   <tr key={p.id} style={{ borderBottom: '1px solid #f8fafc' }}
@@ -229,54 +288,49 @@ const Products = () => {
                   >
                     <td style={{ padding: '13px 14px' }}>
                       <div style={{ fontWeight: 700, color: '#0f172a' }}>{p.name}</div>
-                      {p.notes && <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>{p.notes}</div>}
+                      {p.description && <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>{p.description.slice(0, 50)}</div>}
                     </td>
-                    <td style={{ padding: '13px 14px', color: '#475569' }}>{p.category || '—'}</td>
-                    <td style={{ padding: '13px 14px', fontFamily: 'monospace', fontSize: 11, color: '#94a3b8' }}>{p.sku || '—'}</td>
+                    <td style={{ padding: '13px 14px', color: '#475569' }}>{p.category?.name || '—'}</td>
                     <td style={{ padding: '13px 14px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <input
-                          type="number" min="0" value={p.stock}
+                          type="number" min="0" value={p.stock_quantity}
                           onChange={e => updateStock(p.id, e.target.value)}
-                          style={{ width: 65, padding: '5px 8px', border: '1.5px solid #e5e7eb', borderRadius: 7, fontSize: 12, color: '#0f172a', textAlign: 'center' }}
+                          disabled={isUpdating}
+                          style={{ width: 70, padding: '5px 8px', border: '1.5px solid #e5e7eb', borderRadius: 7, fontSize: 12, color: '#0f172a', textAlign: 'center' }}
                         />
-                        {p.maxStock > 0 && (
-                          <div>
+                        {isUpdating && <span style={{ fontSize: 10, color: '#94a3b8' }}>...</span>}
+                        {p.low_stock_threshold > 0 && (
+                          <div style={{ minWidth: 60 }}>
                             <div style={{ width: 50, height: 4, background: '#f1f5f9', borderRadius: 2 }}>
-                              <div style={{ width: `${pct}%`, height: '100%', background: barColor, borderRadius: 2 }} />
+                              <div style={{ width: `${Math.min(100, pct)}%`, height: '100%', background: barColor, borderRadius: 2 }} />
                             </div>
-                            <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 2 }}>{pct}% of {p.maxStock}</div>
+                            <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 2 }}>≤{p.low_stock_threshold}</div>
                           </div>
                         )}
                       </div>
                     </td>
-                    <td style={{ padding: '13px 14px', fontWeight: 600, color: '#0f172a' }}>{p.price || '—'}</td>
+                    <td style={{ padding: '13px 14px', fontWeight: 600, color: '#0f172a' }}>${parseFloat(p.price).toFixed(2)}</td>
                     <td style={{ padding: '13px 14px' }}>
-                      {p.expiryDate ? (
+                      {p.expiry_date ? (
                         <span style={{ fontSize: 12, fontWeight: 600, color: expiryColor }}>
                           {days < 0 ? '⚠️ Expired' : days === 0 ? '⚠️ Today' : `${fmt(days)}`}
                         </span>
                       ) : <span style={{ color: '#cbd5e1', fontSize: 12 }}>—</span>}
                     </td>
-                    <td style={{ padding: '13px 14px' }}><Badge status={p.status} /></td>
+                    <td style={{ padding: '13px 14px' }}>
+                      <Badge status={p.stock_quantity === 0 ? 'out' : p.is_low_stock ? 'low' : 'ok'} />
+                    </td>
                     <td style={{ padding: '13px 14px' }}>
                       <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
                         <button onClick={() => openModal(p)} style={{ background: 'none', border: 'none', color: '#2563eb', cursor: 'pointer', fontSize: 12, fontWeight: 600, padding: 0 }}>Edit</button>
                         <button onClick={() => setShowHistory(showHistory === p.id ? null : p.id)} style={{ background: 'none', border: 'none', color: '#7c3aed', cursor: 'pointer', fontSize: 12, fontWeight: 600, padding: 0 }}>History</button>
                         <button onClick={() => handleDelete(p.id)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: 12, fontWeight: 600, padding: 0 }}>Delete</button>
                       </div>
-                      {/* Inline history panel */}
                       {showHistory === p.id && (
                         <div style={{ marginTop: 8, padding: 10, background: '#f8fafc', borderRadius: 8, border: '1px solid #e2e8f0', minWidth: 200 }}>
                           <div style={{ fontSize: 11, fontWeight: 700, color: '#475569', marginBottom: 6 }}>Stock History</div>
-                          {(p.history || []).length === 0 ? (
-                            <div style={{ fontSize: 11, color: '#94a3b8' }}>No history yet</div>
-                          ) : [...(p.history || [])].reverse().slice(0, 5).map((h, i) => (
-                            <div key={i} style={{ fontSize: 11, color: '#475569', marginBottom: 4, display: 'flex', justifyContent: 'space-between', gap: 8 }}>
-                              <span>{h.from} → {h.to}</span>
-                              <span style={{ color: '#94a3b8' }}>{new Date(h.date).toLocaleDateString()}</span>
-                            </div>
-                          ))}
+                          <div style={{ fontSize: 11, color: '#94a3b8' }}>API integration coming soon</div>
                         </div>
                       )}
                     </td>
@@ -311,71 +365,68 @@ const Products = () => {
               <button onClick={() => setShowModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: '#94a3b8', lineHeight: 1 }}>×</button>
             </div>
 
-            <form onSubmit={handleSubmit}>
+            <form onSubmit={editingProduct ? handleUpdate : handleCreate}>
               {/* Product Name */}
               <div style={{ marginBottom: 14 }}>
                 <label style={labelStyle}>Product Name *</label>
-                <input type="text" required value={form.name} onChange={setField('name')} style={inputStyle}
+                <input type="text" required value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} style={inputStyle}
                   onFocus={e => e.target.style.borderColor = '#2563eb'} onBlur={e => e.target.style.borderColor = '#e5e7eb'} />
               </div>
 
-              {/* Category & SKU */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
-                <div>
-                  <label style={labelStyle}>Category *</label>
-                  <input type="text" required value={form.category} onChange={setField('category')} style={inputStyle}
-                    onFocus={e => e.target.style.borderColor = '#2563eb'} onBlur={e => e.target.style.borderColor = '#e5e7eb'}
-                    placeholder="e.g. Fresh Produce" />
-                </div>
-                <div>
-                  <label style={labelStyle}>SKU</label>
-                  <input type="text" value={form.sku} onChange={setField('sku')} style={inputStyle}
-                    onFocus={e => e.target.style.borderColor = '#2563eb'} onBlur={e => e.target.style.borderColor = '#e5e7eb'} />
-                </div>
+              {/* Category & Description */}
+              <div style={{ marginBottom: 14 }}>
+                <label style={labelStyle}>Category</label>
+                <select value={form.category_id} onChange={e => setForm({ ...form, category_id: e.target.value })} style={inputStyle}>
+                  <option value="">Uncategorized</option>
+                  {categories.map(cat => (
+                    <option key={cat.id} value={cat.id}>{cat.name}</option>
+                  ))}
+                </select>
               </div>
 
-              {/* Stock, Max, Threshold */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 14 }}>
-                <div>
-                  <label style={labelStyle}>Current Stock *</label>
-                  <input type="number" min="0" required value={form.stock} onChange={setField('stock')} style={inputStyle}
-                    onFocus={e => e.target.style.borderColor = '#2563eb'} onBlur={e => e.target.style.borderColor = '#e5e7eb'} />
-                </div>
-                <div>
-                  <label style={labelStyle}>Max Stock</label>
-                  <input type="number" min="0" value={form.maxStock} onChange={setField('maxStock')} style={inputStyle}
-                    placeholder="Optional"
-                    onFocus={e => e.target.style.borderColor = '#2563eb'} onBlur={e => e.target.style.borderColor = '#e5e7eb'} />
-                </div>
-                <div>
-                  <label style={labelStyle}>Low Stock Alert ≤</label>
-                  <input type="number" min="0" value={form.lowThreshold} onChange={setField('lowThreshold')} style={inputStyle}
-                    placeholder="Default: 10"
-                    onFocus={e => e.target.style.borderColor = '#2563eb'} onBlur={e => e.target.style.borderColor = '#e5e7eb'} />
-                </div>
+              <div style={{ marginBottom: 14 }}>
+                <label style={labelStyle}>Description</label>
+                <textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} style={{ ...inputStyle, minHeight: 80, resize: 'vertical' }} placeholder="Product description..." />
               </div>
 
-              {/* Price & Expiry */}
+              {/* Stock fields */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
                 <div>
                   <label style={labelStyle}>Price *</label>
-                  <input type="text" required value={form.price} onChange={setField('price')} style={inputStyle}
-                    placeholder="$0.00"
+                  <input type="number" step="0.01" min="0" required value={form.price} onChange={e => setForm({ ...form, price: e.target.value })} style={inputStyle}
                     onFocus={e => e.target.style.borderColor = '#2563eb'} onBlur={e => e.target.style.borderColor = '#e5e7eb'} />
                 </div>
                 <div>
-                  <label style={labelStyle}>Expiry / Best Before</label>
-                  <input type="date" value={form.expiryDate} onChange={setField('expiryDate')} style={inputStyle}
+                  <label style={labelStyle}>Stock Quantity *</label>
+                  <input type="number" min="0" required value={form.stock_quantity} onChange={e => setForm({ ...form, stock_quantity: e.target.value })} style={inputStyle}
                     onFocus={e => e.target.style.borderColor = '#2563eb'} onBlur={e => e.target.style.borderColor = '#e5e7eb'} />
                 </div>
               </div>
 
-              {/* Notes */}
-              <div style={{ marginBottom: 22 }}>
-                <label style={labelStyle}>Notes</label>
-                <input type="text" value={form.notes} onChange={setField('notes')} style={inputStyle}
-                  placeholder="Optional internal notes"
-                  onFocus={e => e.target.style.borderColor = '#2563eb'} onBlur={e => e.target.style.borderColor = '#e5e7eb'} />
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
+                <div>
+                  <label style={labelStyle}>Low Stock Alert ≤</label>
+                  <input type="number" min="0" value={form.low_stock_threshold} onChange={e => setForm({ ...form, low_stock_threshold: e.target.value })} style={inputStyle}
+                    placeholder="Default: 5" />
+                </div>
+                <div>
+                  <label style={labelStyle}>Expiry Date</label>
+                  <input type="date" value={form.expiry_date} onChange={e => setForm({ ...form, expiry_date: e.target.value })} style={inputStyle} />
+                </div>
+              </div>
+
+              {/* Image URL */}
+              <div style={{ marginBottom: 14 }}>
+                <label style={labelStyle}>Image URL</label>
+                <input type="url" value={form.image_url} onChange={e => setForm({ ...form, image_url: e.target.value })} style={inputStyle} placeholder="https://..." />
+              </div>
+
+              {/* Visible toggle */}
+              <div style={{ marginBottom: 22, display: 'flex', alignItems: 'center', gap: 10 }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                  <input type="checkbox" checked={form.is_visible} onChange={e => setForm({ ...form, is_visible: e.target.checked })} style={{ width: 16, height: 16 }} />
+                  <span style={{ fontSize: 13, color: '#374151' }}>Show on storefront</span>
+                </label>
               </div>
 
               <div style={{ display: 'flex', gap: 10 }}>
