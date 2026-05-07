@@ -1,3 +1,4 @@
+// pages/Login.jsx
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -6,10 +7,11 @@ const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { login } = useAuth();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     
@@ -18,70 +20,119 @@ const Login = () => {
       return;
     }
     
-    const success = login(email, password);
-    if (success) {
+    setLoading(true);
+    const result = await login(email, password);
+    
+    if (result.success) {
       navigate('/dashboard');
     } else {
-      setError('Login failed. Please try again.');
+      setError(result.error);
     }
+    setLoading(false);
   };
 
   return (
     <div style={{
-      minHeight: "100vh", background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-      display: "flex", alignItems: "center", justifyContent: "center", padding: "20px",
+      minHeight: '100vh',
+      background: 'linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #0f172a 100%)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
     }}>
       <div style={{
-        background: "#fff", borderRadius: 24, padding: "40px", width: "100%", maxWidth: 440,
-        boxShadow: "0 20px 40px rgba(0,0,0,0.1)",
+        position: 'fixed', inset: 0, opacity: 0.04,
+        backgroundImage: 'linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)',
+        backgroundSize: '40px 40px',
+        pointerEvents: 'none',
+      }} />
+
+      <div style={{
+        background: '#fff', borderRadius: 20, padding: '40px 36px',
+        width: '100%', maxWidth: 420,
+        boxShadow: '0 25px 60px rgba(0,0,0,0.35)',
+        position: 'relative',
       }}>
-        <div style={{ textAlign: "center", marginBottom: 32 }}>
-          <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 8, color: "#000000" }}>
-            <span style={{ color: "#3b82f6" }}>Smart</span>Shelf
-          </h1>
-          <p style={{ color: "#555555" }}>Sign in to your account</p>
+        <div style={{ textAlign: 'center', marginBottom: 32 }}>
+          <div style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.5px', color: '#0f172a', marginBottom: 6 }}>
+            <span style={{ color: '#2563eb' }}>Smart</span>Shelf
+          </div>
+          <p style={{ fontSize: 14, color: '#64748b', margin: 0 }}>Sign in to your account</p>
         </div>
 
         {error && (
-          <div style={{ background: "#fef2f2", color: "#dc2626", padding: "12px", borderRadius: 10, marginBottom: 20, fontSize: 14 }}>
+          <div style={{
+            background: '#fef2f2', color: '#dc2626', padding: '11px 14px',
+            borderRadius: 10, marginBottom: 20, fontSize: 13,
+            border: '1px solid #fecaca',
+          }}>
             {error}
           </div>
         )}
 
         <form onSubmit={handleSubmit}>
-          <div style={{ marginBottom: 20 }}>
-            <label style={{ display: "block", marginBottom: 8, fontSize: 13, fontWeight: 500, color: "#000000" }}>Email Address</label>
+          <div style={{ marginBottom: 18 }}>
+            <label style={{ display: 'block', marginBottom: 7, fontSize: 13, fontWeight: 600, color: '#374151' }}>Email Address</label>
             <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              style={{ width: "100%", padding: "12px 16px", border: "1px solid #e2e8f0", borderRadius: 10, fontSize: 14, color: "#000000" }}
+              type="email" value={email} onChange={e => setEmail(e.target.value)}
               placeholder="you@example.com"
+              style={{
+                width: '100%', padding: '11px 14px', border: '1.5px solid #e5e7eb',
+                borderRadius: 10, fontSize: 14, color: '#0f172a',
+                outline: 'none', boxSizing: 'border-box',
+                transition: 'border-color 0.2s',
+              }}
+              onFocus={e => e.target.style.borderColor = '#2563eb'}
+              onBlur={e => e.target.style.borderColor = '#e5e7eb'}
             />
           </div>
           <div style={{ marginBottom: 24 }}>
-            <label style={{ display: "block", marginBottom: 8, fontSize: 13, fontWeight: 500, color: "#000000" }}>Password</label>
+            <label style={{ display: 'block', marginBottom: 7, fontSize: 13, fontWeight: 600, color: '#374151' }}>Password</label>
             <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              style={{ width: "100%", padding: "12px 16px", border: "1px solid #e2e8f0", borderRadius: 10, fontSize: 14, color: "#000000" }}
+              type="password" value={password} onChange={e => setPassword(e.target.value)}
               placeholder="••••••••"
+              style={{
+                width: '100%', padding: '11px 14px', border: '1.5px solid #e5e7eb',
+                borderRadius: 10, fontSize: 14, color: '#0f172a',
+                outline: 'none', boxSizing: 'border-box',
+                transition: 'border-color 0.2s',
+              }}
+              onFocus={e => e.target.style.borderColor = '#2563eb'}
+              onBlur={e => e.target.style.borderColor = '#e5e7eb'}
             />
           </div>
           <button
-            type="submit"
+            type="submit" disabled={loading}
             style={{
-              width: "100%", padding: "12px", background: "#3b82f6", color: "#fff",
-              border: "none", borderRadius: 10, fontSize: 16, fontWeight: 600, cursor: "pointer",
+              width: '100%', padding: '12px', background: loading ? '#93c5fd' : '#2563eb',
+              color: '#fff', border: 'none', borderRadius: 10, fontSize: 15,
+              fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer',
+              transition: 'background 0.2s', letterSpacing: '0.01em',
             }}
           >
-            Sign In
+            {loading ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
 
-        <p style={{ textAlign: "center", marginTop: 24, fontSize: 14, color: "#555555" }}>
-          Don't have an account? <Link to="/signup" style={{ color: "#3b82f6", textDecoration: "none" }}>Sign up</Link>
+        <div style={{ marginTop: 20 }}>
+          <button
+            onClick={async () => {
+              setLoading(true);
+              const result = await login('demo@smartshelf.com.au', 'password123');
+              if (result.success) navigate('/dashboard');
+              else setError(result.error);
+              setLoading(false);
+            }}
+            style={{
+              width: '100%', padding: '10px', background: '#f1f5f9',
+              color: '#475569', border: 'none', borderRadius: 10, fontSize: 13,
+              fontWeight: 600, cursor: 'pointer',
+            }}
+          >
+            🎯 Try Demo Account
+          </button>
+        </div>
+
+        <p style={{ textAlign: 'center', marginTop: 22, fontSize: 13, color: '#64748b' }}>
+          Don't have an account?{' '}
+          <Link to="/signup" style={{ color: '#2563eb', fontWeight: 600, textDecoration: 'none' }}>Sign up</Link>
         </p>
       </div>
     </div>

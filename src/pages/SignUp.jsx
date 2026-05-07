@@ -1,130 +1,171 @@
+// pages/SignUp.jsx
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 const SignUp = () => {
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [storeName, setStoreName] = useState('');
+  const [form, setForm] = useState({
+    name: '',
+    email: '',
+    password: '',
+    password_confirmation: '',
+    store_name: '',
+    suburb: '',
+    state: 'NSW',
+    postcode: '',
+    phone: '',
+  });
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { signup } = useAuth();
 
-  const handleSubmit = (e) => {
+  const setField = (field) => (e) => setForm(f => ({ ...f, [field]: e.target.value }));
+
+  const states = ['NSW', 'VIC', 'QLD', 'WA', 'SA', 'TAS', 'ACT', 'NT'];
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     
-    if (!name || !email || !password || !storeName) {
-      setError('Please fill in all fields');
+    const { name, email, password, password_confirmation, store_name, suburb, postcode } = form;
+    if (!name || !email || !password || !store_name || !suburb || !postcode) {
+      setError('Please fill in all required fields');
       return;
     }
-    
-    if (password !== confirmPassword) {
+    if (password !== password_confirmation) {
       setError('Passwords do not match');
       return;
     }
-    
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters');
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters');
       return;
     }
     
-    const success = signup(name, email, password, storeName);
-    if (success) {
+    setLoading(true);
+    const result = await signup(form);
+    
+    if (result.success) {
       navigate('/dashboard');
     } else {
-      setError('Signup failed. Please try again.');
+      setError(result.error);
     }
+    setLoading(false);
   };
+
+  const inputStyle = {
+    width: '100%', padding: '11px 14px', border: '1.5px solid #e5e7eb',
+    borderRadius: 10, fontSize: 14, color: '#0f172a',
+    outline: 'none', boxSizing: 'border-box', transition: 'border-color 0.2s',
+  };
+  const labelStyle = { display: 'block', marginBottom: 7, fontSize: 13, fontWeight: 600, color: '#374151' };
 
   return (
     <div style={{
-      minHeight: "100vh", background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-      display: "flex", alignItems: "center", justifyContent: "center", padding: "20px",
+      minHeight: '100vh',
+      background: 'linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #0f172a 100%)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
     }}>
       <div style={{
-        background: "#fff", borderRadius: 24, padding: "40px", width: "100%", maxWidth: 480,
-        boxShadow: "0 20px 40px rgba(0,0,0,0.1)",
+        position: 'fixed', inset: 0, opacity: 0.04,
+        backgroundImage: 'linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)',
+        backgroundSize: '40px 40px', pointerEvents: 'none',
+      }} />
+
+      <div style={{
+        background: '#fff', borderRadius: 20, padding: '40px 36px',
+        width: '100%', maxWidth: 520,
+        boxShadow: '0 25px 60px rgba(0,0,0,0.35)', position: 'relative',
+        maxHeight: '90vh', overflowY: 'auto',
       }}>
-        <div style={{ textAlign: "center", marginBottom: 32 }}>
-          <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 8, color: "#000000" }}>
-            <span style={{ color: "#3b82f6" }}>Smart</span>Shelf
-          </h1>
-          <p style={{ color: "#555555" }}>Create your account</p>
+        <div style={{ textAlign: 'center', marginBottom: 28 }}>
+          <div style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.5px', color: '#0f172a', marginBottom: 6 }}>
+            <span style={{ color: '#2563eb' }}>Smart</span>Shelf
+          </div>
+          <p style={{ fontSize: 14, color: '#64748b', margin: 0 }}>Create your retailer account</p>
         </div>
 
         {error && (
-          <div style={{ background: "#fef2f2", color: "#dc2626", padding: "12px", borderRadius: 10, marginBottom: 20, fontSize: 14 }}>
+          <div style={{ background: '#fef2f2', color: '#dc2626', padding: '11px 14px', borderRadius: 10, marginBottom: 18, fontSize: 13, border: '1px solid #fecaca' }}>
             {error}
           </div>
         )}
 
         <form onSubmit={handleSubmit}>
-          <div style={{ marginBottom: 16 }}>
-            <label style={{ display: "block", marginBottom: 8, fontSize: 13, fontWeight: 500, color: "#000000" }}>Full Name</label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              style={{ width: "100%", padding: "12px 16px", border: "1px solid #e2e8f0", borderRadius: 10, fontSize: 14, color: "#000000" }}
-              placeholder="John Doe"
-            />
+          <div style={{ marginBottom: 14 }}>
+            <label style={labelStyle}>Full Name *</label>
+            <input type="text" value={form.name} onChange={setField('name')} placeholder="John Doe" style={inputStyle}
+              onFocus={e => e.target.style.borderColor = '#2563eb'} onBlur={e => e.target.style.borderColor = '#e5e7eb'} />
           </div>
-          <div style={{ marginBottom: 16 }}>
-            <label style={{ display: "block", marginBottom: 8, fontSize: 13, fontWeight: 500, color: "#000000" }}>Email Address</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              style={{ width: "100%", padding: "12px 16px", border: "1px solid #e2e8f0", borderRadius: 10, fontSize: 14, color: "#000000" }}
-              placeholder="you@example.com"
-            />
+          
+          <div style={{ marginBottom: 14 }}>
+            <label style={labelStyle}>Email Address *</label>
+            <input type="email" value={form.email} onChange={setField('email')} placeholder="you@example.com" style={inputStyle}
+              onFocus={e => e.target.style.borderColor = '#2563eb'} onBlur={e => e.target.style.borderColor = '#e5e7eb'} />
           </div>
-          <div style={{ marginBottom: 16 }}>
-            <label style={{ display: "block", marginBottom: 8, fontSize: 13, fontWeight: 500, color: "#000000" }}>Store Name</label>
-            <input
-              type="text"
-              value={storeName}
-              onChange={(e) => setStoreName(e.target.value)}
-              style={{ width: "100%", padding: "12px 16px", border: "1px solid #e2e8f0", borderRadius: 10, fontSize: 14, color: "#000000" }}
-              placeholder="Fresh Mart"
-            />
+          
+          <div style={{ marginBottom: 14 }}>
+            <label style={labelStyle}>Store Name *</label>
+            <input type="text" value={form.store_name} onChange={setField('store_name')} placeholder="Fresh Mart" style={inputStyle}
+              onFocus={e => e.target.style.borderColor = '#2563eb'} onBlur={e => e.target.style.borderColor = '#e5e7eb'} />
           </div>
-          <div style={{ marginBottom: 16 }}>
-            <label style={{ display: "block", marginBottom: 8, fontSize: 13, fontWeight: 500, color: "#000000" }}>Password</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              style={{ width: "100%", padding: "12px 16px", border: "1px solid #e2e8f0", borderRadius: 10, fontSize: 14, color: "#000000" }}
-              placeholder="••••••••"
-            />
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
+            <div>
+              <label style={labelStyle}>Suburb *</label>
+              <input type="text" value={form.suburb} onChange={setField('suburb')} placeholder="Cabramatta" style={inputStyle}
+                onFocus={e => e.target.style.borderColor = '#2563eb'} onBlur={e => e.target.style.borderColor = '#e5e7eb'} />
+            </div>
+            <div>
+              <label style={labelStyle}>State *</label>
+              <select value={form.state} onChange={setField('state')} style={inputStyle}>
+                {states.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
           </div>
-          <div style={{ marginBottom: 24 }}>
-            <label style={{ display: "block", marginBottom: 8, fontSize: 13, fontWeight: 500, color: "#000000" }}>Confirm Password</label>
-            <input
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              style={{ width: "100%", padding: "12px 16px", border: "1px solid #e2e8f0", borderRadius: 10, fontSize: 14, color: "#000000" }}
-              placeholder="••••••••"
-            />
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
+            <div>
+              <label style={labelStyle}>Postcode *</label>
+              <input type="text" value={form.postcode} onChange={setField('postcode')} placeholder="2166" style={inputStyle}
+                onFocus={e => e.target.style.borderColor = '#2563eb'} onBlur={e => e.target.style.borderColor = '#e5e7eb'} />
+            </div>
+            <div>
+              <label style={labelStyle}>Phone (optional)</label>
+              <input type="tel" value={form.phone} onChange={setField('phone')} placeholder="(02) 9000 1234" style={inputStyle}
+                onFocus={e => e.target.style.borderColor = '#2563eb'} onBlur={e => e.target.style.borderColor = '#e5e7eb'} />
+            </div>
           </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 24 }}>
+            <div>
+              <label style={labelStyle}>Password *</label>
+              <input type="password" value={form.password} onChange={setField('password')} placeholder="••••••••" style={inputStyle}
+                onFocus={e => e.target.style.borderColor = '#2563eb'} onBlur={e => e.target.style.borderColor = '#e5e7eb'} />
+            </div>
+            <div>
+              <label style={labelStyle}>Confirm Password *</label>
+              <input type="password" value={form.password_confirmation} onChange={setField('password_confirmation')} placeholder="••••••••" style={inputStyle}
+                onFocus={e => e.target.style.borderColor = '#2563eb'} onBlur={e => e.target.style.borderColor = '#e5e7eb'} />
+            </div>
+          </div>
+
           <button
-            type="submit"
+            type="submit" disabled={loading}
             style={{
-              width: "100%", padding: "12px", background: "#3b82f6", color: "#fff",
-              border: "none", borderRadius: 10, fontSize: 16, fontWeight: 600, cursor: "pointer",
+              width: '100%', padding: '12px', background: loading ? '#93c5fd' : '#2563eb',
+              color: '#fff', border: 'none', borderRadius: 10, fontSize: 15,
+              fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer',
+              transition: 'background 0.2s',
             }}
           >
-            Sign Up
+            {loading ? 'Creating account...' : 'Create Account'}
           </button>
         </form>
 
-        <p style={{ textAlign: "center", marginTop: 24, fontSize: 14, color: "#555555" }}>
-          Already have an account? <Link to="/login" style={{ color: "#3b82f6", textDecoration: "none" }}>Sign in</Link>
+        <p style={{ textAlign: 'center', marginTop: 22, fontSize: 13, color: '#64748b' }}>
+          Already have an account?{' '}
+          <Link to="/login" style={{ color: '#2563eb', fontWeight: 600, textDecoration: 'none' }}>Sign in</Link>
         </p>
       </div>
     </div>
