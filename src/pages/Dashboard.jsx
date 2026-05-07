@@ -1,11 +1,10 @@
-// pages/Dashboard.jsx
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer,
 } from 'recharts';
 import { useAuth } from '../contexts/AuthContext';
-import { dashboard as dashboardApi, products as productsApi, categories as categoriesApi } from '../services/api';
+import { products as productsApi, categories as categoriesApi } from '../services/api';
 
 const daysUntilExpiry = (dateStr) => {
   if (!dateStr) return null;
@@ -58,7 +57,7 @@ const Dashboard = () => {
         const [productsRes, categoriesRes, dashboardRes] = await Promise.all([
           productsApi.getAll({ per_page: 100 }),
           categoriesApi.getAll(),
-          dashboardApi.getOverview(),
+          productsApi.getDashboard(),
         ]);
         
         setProducts(productsRes.data.data.data || []);
@@ -85,7 +84,7 @@ const Dashboard = () => {
     }
     return {
       total: dashboardData.total_products || products.length,
-      inStock: (products.length - (dashboardData.low_stock_count || 0) - (dashboardData.out_of_stock || 0)),
+      inStock: products.filter(p => p.stock_quantity > 0 && !p.is_low_stock).length,
       lowStock: dashboardData.low_stock_count || 0,
       outOfStock: dashboardData.out_of_stock || 0,
     };
@@ -113,14 +112,15 @@ const Dashboard = () => {
   }, [products, categories]);
 
   const expiryAlerts = useMemo(() => {
-    return products
-      .map(p => ({ ...p, days: daysUntilExpiry(p.expiry_date) }))
-      .filter(p => p.days !== null && p.days <= 7 && p.days >= 0)
-      .sort((a, b) => a.days - b.days);
-  }, [products]);
+    const expiring = dashboardData?.expiring_soon || [];
+    return expiring.map(p => ({
+      ...p,
+      days: daysUntilExpiry(p.expiry_date)
+    })).filter(p => p.days !== null && p.days <= 7).sort((a, b) => a.days - b.days);
+  }, [dashboardData]);
 
   const lowStockItems = useMemo(() =>
-    products.filter(p => p.stock_quantity <= p.low_stock_threshold && p.stock_quantity > 0).slice(0, 5),
+    products.filter(p => p.is_low_stock && p.stock_quantity > 0).slice(0, 5),
     [products]);
 
   const greet = () => {
@@ -134,7 +134,6 @@ const Dashboard = () => {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 400 }}>
         <div style={{ width: 40, height: 40, border: '3px solid #e2e8f0', borderTop: '3px solid #2563eb', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
     );
   }
@@ -146,7 +145,7 @@ const Dashboard = () => {
           {greet()}, {user?.name?.split(' ')[0]} 👋
         </h2>
         <p style={{ fontSize: 13, color: '#64748b', marginTop: 4 }}>
-          Here's what's happening in <strong>{retailer?.store_name || user?.storeName}</strong> today.
+          Here's what's happening in <strong>{retailer?.store_name || 'your store'}</strong> today.
         </p>
       </div>
 
@@ -198,7 +197,6 @@ const Dashboard = () => {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {lowStockItems.map(p => {
                   const pct = (p.stock_quantity / p.low_stock_threshold) * 100;
-                  const barColor = '#f59e0b';
                   return (
                     <div key={p.id} style={{
                       padding: '9px 12px', borderRadius: 8, background: '#fffbeb',
@@ -209,7 +207,7 @@ const Dashboard = () => {
                         <span style={{ fontSize: 12, color: '#64748b' }}>{p.stock_quantity} / {p.low_stock_threshold}</span>
                       </div>
                       <div style={{ height: 4, background: '#f1f5f9', borderRadius: 2 }}>
-                        <div style={{ width: `${Math.min(100, pct)}%`, height: '100%', background: barColor, borderRadius: 2 }} />
+                        <div style={{ width: `${Math.min(100, pct)}%`, height: '100%', background: '#f59e0b', borderRadius: 2 }} />
                       </div>
                     </div>
                   );

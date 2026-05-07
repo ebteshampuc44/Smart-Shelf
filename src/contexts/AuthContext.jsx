@@ -1,4 +1,3 @@
-// contexts/AuthContext.jsx
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { auth, retailer } from '../services/api';
 
@@ -19,15 +18,16 @@ export const AuthProvider = ({ children }) => {
       if (token && storedUser) {
         setUser(JSON.parse(storedUser));
         try {
-          // Verify token is still valid
           const response = await auth.me();
           setUser(response.data.user);
           setRetailerProfile(response.data.retailer);
           localStorage.setItem('smartshelf_user', JSON.stringify(response.data.user));
+          localStorage.setItem('smartshelf_retailer', JSON.stringify(response.data.retailer));
         } catch (error) {
-          // Token expired or invalid
+          console.error('Auth check failed:', error);
           localStorage.removeItem('smartshelf_token');
           localStorage.removeItem('smartshelf_user');
+          localStorage.removeItem('smartshelf_retailer');
           setUser(null);
           setRetailerProfile(null);
         }
@@ -45,12 +45,14 @@ export const AuthProvider = ({ children }) => {
       
       localStorage.setItem('smartshelf_token', token);
       localStorage.setItem('smartshelf_user', JSON.stringify(userData));
+      localStorage.setItem('smartshelf_retailer', JSON.stringify(retailerData));
       
       setUser(userData);
       setRetailerProfile(retailerData);
       
       return { success: true };
     } catch (error) {
+      console.error('Login error:', error);
       const message = error.response?.data?.message || 'Invalid email or password.';
       return { success: false, error: message };
     }
@@ -63,12 +65,14 @@ export const AuthProvider = ({ children }) => {
       
       localStorage.setItem('smartshelf_token', token);
       localStorage.setItem('smartshelf_user', JSON.stringify(userDataResponse));
+      localStorage.setItem('smartshelf_retailer', JSON.stringify(retailerData));
       
       setUser(userDataResponse);
       setRetailerProfile(retailerData);
       
       return { success: true };
     } catch (error) {
+      console.error('Signup error:', error);
       const errors = error.response?.data?.errors;
       let message = 'Registration failed. Please try again.';
       if (errors) {
@@ -82,10 +86,11 @@ export const AuthProvider = ({ children }) => {
     try {
       await auth.logout();
     } catch (error) {
-      // Ignore errors on logout
+      console.error('Logout error:', error);
     }
     localStorage.removeItem('smartshelf_token');
     localStorage.removeItem('smartshelf_user');
+    localStorage.removeItem('smartshelf_retailer');
     setUser(null);
     setRetailerProfile(null);
   };
@@ -95,16 +100,10 @@ export const AuthProvider = ({ children }) => {
       const response = await retailer.updateProfile(updatedData);
       const updatedRetailer = response.data.data;
       setRetailerProfile(updatedRetailer);
-      
-      // Update user store name if changed
-      if (updatedData.store_name && user) {
-        const updatedUser = { ...user, name: updatedData.store_name };
-        setUser(updatedUser);
-        localStorage.setItem('smartshelf_user', JSON.stringify(updatedUser));
-      }
-      
+      localStorage.setItem('smartshelf_retailer', JSON.stringify(updatedRetailer));
       return { success: true, data: updatedRetailer };
     } catch (error) {
+      console.error('Update profile error:', error);
       const errors = error.response?.data?.errors;
       let message = 'Update failed.';
       if (errors) {
@@ -120,26 +119,25 @@ export const AuthProvider = ({ children }) => {
       setUser(response.data.user);
       setRetailerProfile(response.data.retailer);
       localStorage.setItem('smartshelf_user', JSON.stringify(response.data.user));
+      localStorage.setItem('smartshelf_retailer', JSON.stringify(response.data.retailer));
       return { success: true };
     } catch (error) {
       return { success: false };
     }
   };
 
-  const value = {
-    user,
-    retailer: retailerProfile,
-    loading,
-    login,
-    signup,
-    logout,
-    updateProfile,
-    refreshProfile,
-    isAuthenticated: !!user,
-  };
-
   return (
-    <AuthContext.Provider value={value}>
+    <AuthContext.Provider value={{
+      user,
+      retailer: retailerProfile,
+      loading,
+      login,
+      signup,
+      logout,
+      updateProfile,
+      refreshProfile,
+      isAuthenticated: !!user,
+    }}>
       {children}
     </AuthContext.Provider>
   );

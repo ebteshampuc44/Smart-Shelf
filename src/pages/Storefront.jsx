@@ -1,7 +1,6 @@
-// src/pages/Storefront.jsx
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { storefront as storefrontApi } from '../services/api';
+import { retailer as retailerApi, products as productsApi } from '../services/api';
 
 const StockBadge = ({ product }) => {
   const isOut = product.stock_quantity === 0;
@@ -53,19 +52,7 @@ const ProductCard = ({ product }) => {
       padding: '18px', display: 'flex', flexDirection: 'column', gap: 10,
       opacity: isOut ? 0.65 : 1,
       transition: 'box-shadow 0.15s, transform 0.15s',
-      cursor: 'default',
-    }}
-      onMouseEnter={e => {
-        if (!isOut) {
-          e.currentTarget.style.boxShadow = '0 4px 20px rgba(0,0,0,0.09)';
-          e.currentTarget.style.transform = 'translateY(-2px)';
-        }
-      }}
-      onMouseLeave={e => {
-        e.currentTarget.style.boxShadow = 'none';
-        e.currentTarget.style.transform = 'none';
-      }}
-    >
+    }}>
       <div style={{
         height: 90, borderRadius: 10, background: 'linear-gradient(135deg, #eff6ff, #dbeafe)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -109,17 +96,14 @@ const Storefront = () => {
     const fetchStorefront = async () => {
       setLoading(true);
       try {
-        // Fetch retailer info
-        const retailerRes = await storefrontApi.getStore(retailerName);
+        const retailerRes = await retailerApi.getStore(retailerName);
         const retailerData = retailerRes.data.data;
         setRetailer(retailerData);
         
-        // Fetch products for this store
-        const productsRes = await storefrontApi.getStoreProducts(retailerName, { per_page: 100 });
+        const productsRes = await productsApi.getPublicProducts(retailerName, { per_page: 100 });
         const productList = productsRes.data.data.data || [];
         setProducts(productList);
         
-        // Extract unique categories
         const uniqueCats = [...new Set(productList.map(p => p.category?.name).filter(Boolean))];
         setCategories(['All', ...uniqueCats]);
         
@@ -149,7 +133,6 @@ const Storefront = () => {
     return (
       <div style={{ minHeight: '100vh', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ width: 40, height: 40, border: '3px solid #e2e8f0', borderTop: '3px solid #2563eb', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
     );
   }
@@ -172,15 +155,13 @@ const Storefront = () => {
 
   return (
     <div style={{ minHeight: '100vh', background: '#f1f5f9' }}>
-      {/* Top brand bar */}
       <div style={{ background: '#0f172a', padding: '10px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <span style={{ fontSize: 15, fontWeight: 800, color: '#fff', letterSpacing: '-0.3px' }}>
+        <span style={{ fontSize: 15, fontWeight: 800, color: '#fff' }}>
           <span style={{ color: '#60a5fa' }}>Smart</span>Shelf
         </span>
         <span style={{ fontSize: 11, color: '#475569' }}>Independent Retailer Platform</span>
       </div>
 
-      {/* Store hero */}
       <div style={{
         background: 'linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%)',
         padding: '40px 24px',
@@ -199,7 +180,7 @@ const Storefront = () => {
             '🛒'
           )}
         </div>
-        <h1 style={{ color: '#fff', fontSize: 26, fontWeight: 800, margin: '0 0 8px', letterSpacing: '-0.3px' }}>
+        <h1 style={{ color: '#fff', fontSize: 26, fontWeight: 800, margin: '0 0 8px' }}>
           {retailer.store_name}
         </h1>
         
@@ -216,7 +197,6 @@ const Storefront = () => {
           )}
         </div>
 
-        {/* Stats bar */}
         <div style={{
           display: 'flex', justifyContent: 'center', gap: 24,
           marginTop: 20, flexWrap: 'wrap',
@@ -234,10 +214,7 @@ const Storefront = () => {
         </div>
       </div>
 
-      {/* Main content */}
       <div style={{ maxWidth: 1100, margin: '0 auto', padding: '28px 20px' }}>
-
-        {/* Search + filter */}
         <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center' }}>
           <input
             type="text" placeholder="Search products…"
@@ -251,7 +228,6 @@ const Storefront = () => {
           />
         </div>
 
-        {/* Category tabs */}
         {categories.length > 1 && (
           <div style={{ display: 'flex', gap: 8, marginBottom: 22, flexWrap: 'wrap' }}>
             {categories.map(cat => (
@@ -272,7 +248,6 @@ const Storefront = () => {
           </div>
         )}
 
-        {/* Products grid */}
         {products.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '60px 20px', color: '#94a3b8' }}>
             <div style={{ fontSize: 48, marginBottom: 14 }}>🛒</div>
@@ -295,7 +270,6 @@ const Storefront = () => {
           </div>
         )}
 
-        {/* Contact CTA */}
         {(retailer.phone || retailer.suburb) && (
           <div style={{
             marginTop: 40, background: '#fff', borderRadius: 14,
@@ -321,7 +295,6 @@ const Storefront = () => {
         )}
       </div>
 
-      {/* Footer */}
       <div style={{ textAlign: 'center', padding: '20px', color: '#94a3b8', fontSize: 12, borderTop: '1px solid #e2e8f0', marginTop: 20 }}>
         Powered by <strong style={{ color: '#2563eb' }}>SmartShelf</strong> — Independent Retailer Platform
       </div>

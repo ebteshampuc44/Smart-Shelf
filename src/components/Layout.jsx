@@ -64,7 +64,7 @@ const Layout = ({ children }) => {
   const [showDropdown, setShowDropdown] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { user, retailer, logout } = useAuth();
 
   useEffect(() => {
     const checkMobile = () => {
@@ -93,9 +93,9 @@ const Layout = ({ children }) => {
     { name: 'Products', path: '/products', icon: <Icons.Products /> },
   ];
 
-  const storefrontSlug = user?.storeName
-    ? user.storeName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
-    : 'my-store';
+  const storefrontSlug = retailer?.slug || (retailer?.store_name
+    ? retailer.store_name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
+    : 'my-store');
 
   const handleLogout = () => {
     logout();
@@ -113,7 +113,6 @@ const Layout = ({ children }) => {
 
   return (
     <div style={{ minHeight: '100vh', background: '#f1f5f9', display: 'flex' }}>
-      {/* Overlay */}
       {sidebarOpen && isMobile && (
         <div
           onClick={() => setSidebarOpen(false)}
@@ -124,11 +123,10 @@ const Layout = ({ children }) => {
         />
       )}
 
-      {/* Sidebar */}
       <aside style={{
         position: isMobile ? 'fixed' : 'sticky',
         top: 0, left: 0, height: '100vh',
-        width: 240,
+        width: 260,
         background: '#0f172a',
         transform: sidebarOpen ? 'translateX(0)' : `translateX(${isMobile ? '-100%' : '0'})`,
         transition: 'transform 0.28s cubic-bezier(.4,0,.2,1)',
@@ -136,7 +134,6 @@ const Layout = ({ children }) => {
         display: 'flex', flexDirection: 'column',
         flexShrink: 0,
       }}>
-        {/* Logo */}
         <div style={{
           padding: '22px 20px 18px',
           borderBottom: '1px solid rgba(255,255,255,0.07)',
@@ -152,7 +149,6 @@ const Layout = ({ children }) => {
           )}
         </div>
 
-        {/* User info */}
         {user && (
           <div style={{
             padding: '16px 20px',
@@ -168,12 +164,11 @@ const Layout = ({ children }) => {
             </div>
             <div style={{ minWidth: 0 }}>
               <div style={{ fontWeight: 600, fontSize: 13, color: '#f1f5f9', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user.name}</div>
-              <div style={{ fontSize: 11, color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user.storeName}</div>
+              <div style={{ fontSize: 11, color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{retailer?.store_name || 'Store'}</div>
             </div>
           </div>
         )}
 
-        {/* Navigation */}
         <nav style={{ padding: '12px 12px', flex: 1 }}>
           <div style={{ fontSize: 10, fontWeight: 700, color: '#334155', letterSpacing: '0.08em', textTransform: 'uppercase', padding: '8px 8px 6px' }}>
             Navigation
@@ -203,7 +198,6 @@ const Layout = ({ children }) => {
             );
           })}
 
-          {/* Storefront link */}
           <div style={{ fontSize: 10, fontWeight: 700, color: '#334155', letterSpacing: '0.08em', textTransform: 'uppercase', padding: '16px 8px 6px' }}>
             Store
           </div>
@@ -228,7 +222,6 @@ const Layout = ({ children }) => {
           </a>
         </nav>
 
-        {/* Logout */}
         <div style={{ padding: '12px', borderTop: '1px solid rgba(255,255,255,0.07)' }}>
           <button
             onClick={handleLogout}
@@ -249,9 +242,7 @@ const Layout = ({ children }) => {
         </div>
       </aside>
 
-      {/* Main area */}
       <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-        {/* Topbar */}
         <header style={{
           background: '#fff',
           borderBottom: '1px solid #e2e8f0',
@@ -270,7 +261,6 @@ const Layout = ({ children }) => {
             {pageTitle}
           </h1>
 
-          {/* Profile dropdown */}
           <div className="profile-dropdown" style={{ position: 'relative' }}>
             <button
               onClick={() => setShowDropdown(!showDropdown)}
@@ -317,7 +307,6 @@ const Layout = ({ children }) => {
           </div>
         </header>
 
-        {/* Page content */}
         <main style={{ padding: '24px', flex: 1, minHeight: 0 }}>
           {children}
         </main>

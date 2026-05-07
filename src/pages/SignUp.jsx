@@ -1,4 +1,3 @@
-// pages/SignUp.jsx
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -56,7 +55,7 @@ const SignUp = () => {
   const inputStyle = {
     width: '100%', padding: '11px 14px', border: '1.5px solid #e5e7eb',
     borderRadius: 10, fontSize: 14, color: '#0f172a',
-    outline: 'none', boxSizing: 'border-box', transition: 'border-color 0.2s',
+    outline: 'none', boxSizing: 'border-box',
   };
   const labelStyle = { display: 'block', marginBottom: 7, fontSize: 13, fontWeight: 600, color: '#374151' };
 
@@ -94,27 +93,23 @@ const SignUp = () => {
         <form onSubmit={handleSubmit}>
           <div style={{ marginBottom: 14 }}>
             <label style={labelStyle}>Full Name *</label>
-            <input type="text" value={form.name} onChange={setField('name')} placeholder="John Doe" style={inputStyle}
-              onFocus={e => e.target.style.borderColor = '#2563eb'} onBlur={e => e.target.style.borderColor = '#e5e7eb'} />
+            <input type="text" value={form.name} onChange={setField('name')} placeholder="John Doe" style={inputStyle} />
           </div>
           
           <div style={{ marginBottom: 14 }}>
             <label style={labelStyle}>Email Address *</label>
-            <input type="email" value={form.email} onChange={setField('email')} placeholder="you@example.com" style={inputStyle}
-              onFocus={e => e.target.style.borderColor = '#2563eb'} onBlur={e => e.target.style.borderColor = '#e5e7eb'} />
+            <input type="email" value={form.email} onChange={setField('email')} placeholder="you@example.com" style={inputStyle} />
           </div>
           
           <div style={{ marginBottom: 14 }}>
             <label style={labelStyle}>Store Name *</label>
-            <input type="text" value={form.store_name} onChange={setField('store_name')} placeholder="Fresh Mart" style={inputStyle}
-              onFocus={e => e.target.style.borderColor = '#2563eb'} onBlur={e => e.target.style.borderColor = '#e5e7eb'} />
+            <input type="text" value={form.store_name} onChange={setField('store_name')} placeholder="Fresh Mart" style={inputStyle} />
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
             <div>
               <label style={labelStyle}>Suburb *</label>
-              <input type="text" value={form.suburb} onChange={setField('suburb')} placeholder="Cabramatta" style={inputStyle}
-                onFocus={e => e.target.style.borderColor = '#2563eb'} onBlur={e => e.target.style.borderColor = '#e5e7eb'} />
+              <input type="text" value={form.suburb} onChange={setField('suburb')} placeholder="Cabramatta" style={inputStyle} />
             </div>
             <div>
               <label style={labelStyle}>State *</label>
@@ -127,26 +122,22 @@ const SignUp = () => {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
             <div>
               <label style={labelStyle}>Postcode *</label>
-              <input type="text" value={form.postcode} onChange={setField('postcode')} placeholder="2166" style={inputStyle}
-                onFocus={e => e.target.style.borderColor = '#2563eb'} onBlur={e => e.target.style.borderColor = '#e5e7eb'} />
+              <input type="text" value={form.postcode} onChange={setField('postcode')} placeholder="2166" style={inputStyle} />
             </div>
             <div>
               <label style={labelStyle}>Phone (optional)</label>
-              <input type="tel" value={form.phone} onChange={setField('phone')} placeholder="(02) 9000 1234" style={inputStyle}
-                onFocus={e => e.target.style.borderColor = '#2563eb'} onBlur={e => e.target.style.borderColor = '#e5e7eb'} />
+              <input type="tel" value={form.phone} onChange={setField('phone')} placeholder="(02) 9000 1234" style={inputStyle} />
             </div>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 24 }}>
             <div>
               <label style={labelStyle}>Password *</label>
-              <input type="password" value={form.password} onChange={setField('password')} placeholder="••••••••" style={inputStyle}
-                onFocus={e => e.target.style.borderColor = '#2563eb'} onBlur={e => e.target.style.borderColor = '#e5e7eb'} />
+              <input type="password" value={form.password} onChange={setField('password')} placeholder="••••••••" style={inputStyle} />
             </div>
             <div>
               <label style={labelStyle}>Confirm Password *</label>
-              <input type="password" value={form.password_confirmation} onChange={setField('password_confirmation')} placeholder="••••••••" style={inputStyle}
-                onFocus={e => e.target.style.borderColor = '#2563eb'} onBlur={e => e.target.style.borderColor = '#e5e7eb'} />
+              <input type="password" value={form.password_confirmation} onChange={setField('password_confirmation')} placeholder="••••••••" style={inputStyle} />
             </div>
           </div>
 
@@ -156,7 +147,6 @@ const SignUp = () => {
               width: '100%', padding: '12px', background: loading ? '#93c5fd' : '#2563eb',
               color: '#fff', border: 'none', borderRadius: 10, fontSize: 15,
               fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer',
-              transition: 'background 0.2s',
             }}
           >
             {loading ? 'Creating account...' : 'Create Account'}

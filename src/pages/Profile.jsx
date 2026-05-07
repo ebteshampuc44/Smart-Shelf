@@ -1,12 +1,10 @@
-// src/pages/Profile.jsx
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { retailer as retailerApi } from '../services/api';
 
 const Field = ({ label, value }) => (
   <div style={{ padding: '14px 0', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16 }}>
     <span style={{ fontSize: 13, color: '#64748b', flexShrink: 0 }}>{label}</span>
-    <span style={{ fontSize: 14, fontWeight: 600, color: '#0f172a', textAlign: 'right', wordBreak: 'break-word' }}>{value || <span style={{ color: '#cbd5e1', fontWeight: 400 }}>Not set</span>}</span>
+    <span style={{ fontSize: 14, fontWeight: 600, color: '#0f172a', textAlign: 'right' }}>{value || <span style={{ color: '#cbd5e1', fontWeight: 400 }}>Not set</span>}</span>
   </div>
 );
 
@@ -24,13 +22,7 @@ const Profile = () => {
     postcode: '',
     phone: '',
     trading_hours: {
-      mon: '',
-      tue: '',
-      wed: '',
-      thu: '',
-      fri: '',
-      sat: '',
-      sun: '',
+      mon: '', tue: '', wed: '', thu: '', fri: '', sat: '', sun: '',
     },
   });
 
@@ -77,14 +69,12 @@ const Profile = () => {
     setLoading(false);
   };
 
-  const storefrontSlug = retailer?.slug || (retailer?.store_name
-    ? retailer.store_name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
-    : 'my-store');
+  const storefrontSlug = retailer?.slug || 'my-store';
 
   const inputStyle = {
     width: '100%', padding: '10px 12px', border: '1.5px solid #e5e7eb',
     borderRadius: 8, fontSize: 14, color: '#0f172a',
-    outline: 'none', boxSizing: 'border-box', transition: 'border-color 0.15s',
+    outline: 'none', boxSizing: 'border-box',
   };
   const labelStyle = { display: 'block', marginBottom: 7, fontSize: 12, fontWeight: 600, color: '#374151' };
 
@@ -93,7 +83,6 @@ const Profile = () => {
 
   return (
     <div style={{ maxWidth: 680, margin: '0 auto' }}>
-      {/* Header card */}
       <div style={{
         background: 'linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%)',
         borderRadius: '16px 16px 0 0', padding: '36px 28px 48px',
@@ -122,14 +111,13 @@ const Profile = () => {
             background: 'rgba(255,255,255,0.15)',
             border: '1px solid rgba(255,255,255,0.3)',
             borderRadius: 20, color: '#fff', fontSize: 13, fontWeight: 600,
-            textDecoration: 'none', backdropFilter: 'blur(4px)',
+            textDecoration: 'none',
           }}
         >
           🏪 View My Storefront ↗
         </a>
       </div>
 
-      {/* Content card */}
       <div style={{
         background: '#fff', borderRadius: '0 0 16px 16px',
         border: '1px solid #e2e8f0', borderTop: 'none', padding: '28px',
@@ -187,19 +175,18 @@ const Profile = () => {
 
             <div style={{ marginBottom: 14 }}>
               <label style={labelStyle}>Store Name *</label>
-              <input type="text" required value={form.store_name} onChange={setField('store_name')} style={inputStyle}
-                onFocus={e => e.target.style.borderColor = '#2563eb'} onBlur={e => e.target.style.borderColor = '#e5e7eb'} />
+              <input type="text" required value={form.store_name} onChange={setField('store_name')} style={inputStyle} />
             </div>
 
             <div style={{ marginBottom: 14 }}>
               <label style={labelStyle}>Description</label>
-              <textarea value={form.description} onChange={setField('description')} style={{ ...inputStyle, minHeight: 80, resize: 'vertical' }} placeholder="Tell customers about your store..." />
+              <textarea value={form.description} onChange={setField('description')} style={{ ...inputStyle, minHeight: 80 }} placeholder="Tell customers about your store..." />
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
               <div>
                 <label style={labelStyle}>Suburb *</label>
-                <input type="text" required value={form.suburb} onChange={setField('suburb')} placeholder="e.g. Parramatta" style={inputStyle} />
+                <input type="text" required value={form.suburb} onChange={setField('suburb')} style={inputStyle} />
               </div>
               <div>
                 <label style={labelStyle}>State *</label>
@@ -212,11 +199,11 @@ const Profile = () => {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
               <div>
                 <label style={labelStyle}>Postcode *</label>
-                <input type="text" required value={form.postcode} onChange={setField('postcode')} placeholder="2166" style={inputStyle} />
+                <input type="text" required value={form.postcode} onChange={setField('postcode')} style={inputStyle} />
               </div>
               <div>
                 <label style={labelStyle}>Phone</label>
-                <input type="tel" value={form.phone} onChange={setField('phone')} placeholder="(02) 9000 1234" style={inputStyle} />
+                <input type="tel" value={form.phone} onChange={setField('phone')} style={inputStyle} />
               </div>
             </div>
 

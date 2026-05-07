@@ -1,4 +1,3 @@
-// services/api.js
 import axios from 'axios';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
@@ -11,7 +10,7 @@ const api = axios.create({
   },
 });
 
-// Request interceptor to add token
+// Request interceptor - add token
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('smartshelf_token');
@@ -23,13 +22,14 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Response interceptor for error handling
+// Response interceptor - handle 401
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
       localStorage.removeItem('smartshelf_token');
       localStorage.removeItem('smartshelf_user');
+      localStorage.removeItem('smartshelf_retailer');
       window.location.href = '/login';
     }
     return Promise.reject(error);
@@ -45,8 +45,10 @@ export const auth = {
   me: () => api.get('/auth/me'),
 };
 
-// ============ RETAILER / PROFILE ENDPOINTS ============
+// ============ RETAILER ENDPOINTS ============
 export const retailer = {
+  getAll: (params) => api.get('/retailers', { params }),
+  getStore: (slug) => api.get(`/store/${slug}`),
   getProfile: () => api.get('/retailer/profile'),
   updateProfile: (data) => api.put('/retailer/profile', data),
 };
@@ -69,18 +71,8 @@ export const products = {
   delete: (id) => api.delete(`/products/${id}`),
   updateStock: (id, quantity, note = '') => api.patch(`/products/${id}/stock`, { quantity, note }),
   getStockHistory: (id, page = 1) => api.get(`/products/${id}/stock-history`, { params: { page } }),
-};
-
-// ============ DASHBOARD ENDPOINTS ============
-export const dashboard = {
-  getOverview: () => api.get('/dashboard'),
-};
-
-// ============ PUBLIC STOREFRONT ENDPOINTS ============
-export const storefront = {
-  getRetailers: (params = {}) => api.get('/retailers', { params }),
-  getStore: (slug) => api.get(`/store/${slug}`),
-  getStoreProducts: (slug, params = {}) => api.get(`/store/${slug}/products`, { params }),
+  getDashboard: () => api.get('/dashboard'),
+  getPublicProducts: (slug, params = {}) => api.get(`/store/${slug}/products`, { params }),
 };
 
 export default api;
