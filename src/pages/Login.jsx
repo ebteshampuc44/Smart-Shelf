@@ -31,17 +31,6 @@ const Login = () => {
     setLoading(false);
   };
 
-  const handleDemoLogin = async () => {
-    setLoading(true);
-    const result = await login('demo@smartshelf.com.au', 'password123');
-    if (result.success) {
-      navigate('/dashboard');
-    } else {
-      setError(result.error);
-    }
-    setLoading(false);
-  };
-
   return (
     <div style={{
       minHeight: '100vh',
@@ -82,52 +71,50 @@ const Login = () => {
           <div style={{ marginBottom: 18 }}>
             <label style={{ display: 'block', marginBottom: 7, fontSize: 13, fontWeight: 600, color: '#374151' }}>Email Address</label>
             <input
-              type="email" value={email} onChange={e => setEmail(e.target.value)}
+              type="email" 
+              value={email} 
+              onChange={e => setEmail(e.target.value)}
               placeholder="you@example.com"
               style={{
                 width: '100%', padding: '11px 14px', border: '1.5px solid #e5e7eb',
                 borderRadius: 10, fontSize: 14, color: '#0f172a',
                 outline: 'none', boxSizing: 'border-box',
+                transition: 'border-color 0.2s',
               }}
+              onFocus={e => e.target.style.borderColor = '#2563eb'}
+              onBlur={e => e.target.style.borderColor = '#e5e7eb'}
             />
           </div>
           <div style={{ marginBottom: 24 }}>
             <label style={{ display: 'block', marginBottom: 7, fontSize: 13, fontWeight: 600, color: '#374151' }}>Password</label>
             <input
-              type="password" value={password} onChange={e => setPassword(e.target.value)}
+              type="password" 
+              value={password} 
+              onChange={e => setPassword(e.target.value)}
               placeholder="••••••••"
               style={{
                 width: '100%', padding: '11px 14px', border: '1.5px solid #e5e7eb',
                 borderRadius: 10, fontSize: 14, color: '#0f172a',
                 outline: 'none', boxSizing: 'border-box',
+                transition: 'border-color 0.2s',
               }}
+              onFocus={e => e.target.style.borderColor = '#2563eb'}
+              onBlur={e => e.target.style.borderColor = '#e5e7eb'}
             />
           </div>
           <button
-            type="submit" disabled={loading}
+            type="submit" 
+            disabled={loading}
             style={{
               width: '100%', padding: '12px', background: loading ? '#93c5fd' : '#2563eb',
               color: '#fff', border: 'none', borderRadius: 10, fontSize: 15,
               fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer',
+              transition: 'background 0.2s',
             }}
           >
             {loading ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
-
-        <div style={{ marginTop: 16 }}>
-          <button
-            onClick={handleDemoLogin}
-            disabled={loading}
-            style={{
-              width: '100%', padding: '10px', background: '#f1f5f9',
-              color: '#475569', border: 'none', borderRadius: 10, fontSize: 13,
-              fontWeight: 600, cursor: 'pointer',
-            }}
-          >
-            🎯 Try Demo Account (demo@smartshelf.com.au / password123)
-          </button>
-        </div>
 
         <p style={{ textAlign: 'center', marginTop: 22, fontSize: 13, color: '#64748b' }}>
           Don't have an account?{' '}

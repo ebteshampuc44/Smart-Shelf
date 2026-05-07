@@ -84,6 +84,7 @@ const Products = () => {
       setCategories([...categories, response.data.data]);
       setShowCategoryModal(false);
       setCategoryForm(emptyCategory);
+      alert('Category created successfully!');
     } catch (error) {
       console.error('Failed to create category:', error);
       alert(error.response?.data?.message || 'Failed to create category');
@@ -101,6 +102,7 @@ const Products = () => {
       setShowCategoryModal(false);
       setEditingCategory(null);
       setCategoryForm(emptyCategory);
+      alert('Category updated successfully!');
     } catch (error) {
       console.error('Failed to update category:', error);
       alert(error.response?.data?.message || 'Failed to update category');
@@ -123,7 +125,8 @@ const Products = () => {
     try {
       await categoriesApi.delete(id);
       setCategories(categories.filter(c => c.id !== id));
-      fetchData();
+      await fetchData();
+      alert('Category deleted successfully!');
     } catch (error) {
       console.error('Failed to delete category:', error);
       alert('Failed to delete category');
@@ -160,6 +163,7 @@ const Products = () => {
       setProducts([response.data.data, ...products]);
       setShowModal(false);
       setForm(emptyForm);
+      alert('Product created successfully!');
     } catch (error) {
       console.error('Failed to create product:', error);
       alert(error.response?.data?.message || 'Failed to create product');
@@ -168,12 +172,18 @@ const Products = () => {
 
   const handleUpdateProduct = async (e) => {
     e.preventDefault();
+    if (!editingProduct) return;
+    
     try {
       const submitData = {
-        ...form,
+        name: form.name,
+        description: form.description,
+        category_id: form.category_id ? parseInt(form.category_id) : null,
         price: parseFloat(form.price),
         low_stock_threshold: parseInt(form.low_stock_threshold) || 5,
-        category_id: form.category_id ? parseInt(form.category_id) : null,
+        expiry_date: form.expiry_date || null,
+        image_url: form.image_url || null,
+        is_visible: form.is_visible,
       };
       
       const response = await productsApi.update(editingProduct.id, submitData);
@@ -181,6 +191,7 @@ const Products = () => {
       setShowModal(false);
       setEditingProduct(null);
       setForm(emptyForm);
+      alert('Product updated successfully!');
     } catch (error) {
       console.error('Failed to update product:', error);
       alert(error.response?.data?.message || 'Failed to update product');
@@ -192,6 +203,7 @@ const Products = () => {
     try {
       await productsApi.delete(id);
       setProducts(products.filter(p => p.id !== id));
+      alert('Product deleted successfully!');
     } catch (error) {
       console.error('Failed to delete product:', error);
       alert('Failed to delete product');
@@ -406,8 +418,18 @@ const Products = () => {
                     </td>
                     <td style={{ padding: '13px 14px' }}>
                       <div style={{ display: 'flex', gap: 10 }}>
-                        <button onClick={() => openProductModal(p)} style={{ background: 'none', border: 'none', color: '#2563eb', cursor: 'pointer', fontSize: 12, fontWeight: 600, padding: 0 }}>Edit</button>
-                        <button onClick={() => handleDeleteProduct(p.id)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: 12, fontWeight: 600, padding: 0 }}>Delete</button>
+                        <button 
+                          onClick={() => openProductModal(p)} 
+                          style={{ background: 'none', border: 'none', color: '#2563eb', cursor: 'pointer', fontSize: 12, fontWeight: 600, padding: 0 }}
+                        >
+                          Edit
+                        </button>
+                        <button 
+                          onClick={() => handleDeleteProduct(p.id)} 
+                          style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: 12, fontWeight: 600, padding: 0 }}
+                        >
+                          Delete
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -438,18 +460,35 @@ const Products = () => {
               <h3 style={{ fontSize: 18, fontWeight: 800, margin: 0, color: '#0f172a' }}>
                 {editingProduct ? 'Edit Product' : 'Add New Product'}
               </h3>
-              <button onClick={() => setShowModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: '#94a3b8' }}>×</button>
+              <button 
+                onClick={() => {
+                  setShowModal(false);
+                  setEditingProduct(null);
+                  setForm(emptyForm);
+                }} 
+                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: '#94a3b8' }}
+              >
+                ×
+              </button>
             </div>
 
             <form onSubmit={editingProduct ? handleUpdateProduct : handleCreateProduct}>
               <div style={{ marginBottom: 14 }}>
                 <label style={labelStyle}>Product Name *</label>
-                <input type="text" required value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} style={inputStyle} />
+                <input 
+                  type="text" required value={form.name} 
+                  onChange={e => setForm({ ...form, name: e.target.value })} 
+                  style={inputStyle} 
+                />
               </div>
 
               <div style={{ marginBottom: 14 }}>
                 <label style={labelStyle}>Category</label>
-                <select value={form.category_id} onChange={e => setForm({ ...form, category_id: e.target.value })} style={inputStyle}>
+                <select 
+                  value={form.category_id} 
+                  onChange={e => setForm({ ...form, category_id: e.target.value })} 
+                  style={inputStyle}
+                >
                   <option value="">Uncategorized</option>
                   {categories.map(cat => (
                     <option key={cat.id} value={cat.id}>{cat.name}</option>
@@ -459,49 +498,85 @@ const Products = () => {
 
               <div style={{ marginBottom: 14 }}>
                 <label style={labelStyle}>Description</label>
-                <textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} style={{ ...inputStyle, minHeight: 80 }} placeholder="Product description..." />
+                <textarea 
+                  value={form.description} 
+                  onChange={e => setForm({ ...form, description: e.target.value })} 
+                  style={{ ...inputStyle, minHeight: 80 }} 
+                  placeholder="Product description..." 
+                />
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
                 <div>
                   <label style={labelStyle}>Price *</label>
-                  <input type="number" step="0.01" min="0" required value={form.price} onChange={e => setForm({ ...form, price: e.target.value })} style={inputStyle} />
+                  <input 
+                    type="number" step="0.01" min="0" required value={form.price} 
+                    onChange={e => setForm({ ...form, price: e.target.value })} 
+                    style={inputStyle} 
+                  />
                 </div>
                 <div>
                   <label style={labelStyle}>Stock Quantity *</label>
-                  <input type="number" min="0" required value={form.stock_quantity} onChange={e => setForm({ ...form, stock_quantity: e.target.value })} style={inputStyle} />
+                  <input 
+                    type="number" min="0" required value={form.stock_quantity} 
+                    onChange={e => setForm({ ...form, stock_quantity: e.target.value })} 
+                    style={inputStyle} 
+                  />
                 </div>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
                 <div>
                   <label style={labelStyle}>Low Stock Alert ≤</label>
-                  <input type="number" min="0" value={form.low_stock_threshold} onChange={e => setForm({ ...form, low_stock_threshold: e.target.value })} style={inputStyle} />
+                  <input 
+                    type="number" min="0" value={form.low_stock_threshold} 
+                    onChange={e => setForm({ ...form, low_stock_threshold: e.target.value })} 
+                    style={inputStyle} 
+                  />
                 </div>
                 <div>
                   <label style={labelStyle}>Expiry Date</label>
-                  <input type="date" value={form.expiry_date} onChange={e => setForm({ ...form, expiry_date: e.target.value })} style={inputStyle} />
+                  <input 
+                    type="date" value={form.expiry_date} 
+                    onChange={e => setForm({ ...form, expiry_date: e.target.value })} 
+                    style={inputStyle} 
+                  />
                 </div>
               </div>
 
               <div style={{ marginBottom: 22, display: 'flex', alignItems: 'center', gap: 10 }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
-                  <input type="checkbox" checked={form.is_visible} onChange={e => setForm({ ...form, is_visible: e.target.checked })} style={{ width: 16, height: 16 }} />
+                  <input 
+                    type="checkbox" checked={form.is_visible} 
+                    onChange={e => setForm({ ...form, is_visible: e.target.checked })} 
+                    style={{ width: 16, height: 16 }} 
+                  />
                   <span style={{ fontSize: 13, color: '#374151' }}>Show on storefront</span>
                 </label>
               </div>
 
               <div style={{ display: 'flex', gap: 10 }}>
-                <button type="button" onClick={() => setShowModal(false)} style={{
-                  flex: 1, padding: '11px', background: '#f1f5f9', border: 'none',
-                  borderRadius: 9, cursor: 'pointer', fontSize: 14, fontWeight: 600, color: '#475569',
-                }}>
+                <button 
+                  type="button" 
+                  onClick={() => {
+                    setShowModal(false);
+                    setEditingProduct(null);
+                    setForm(emptyForm);
+                  }} 
+                  style={{
+                    flex: 1, padding: '11px', background: '#f1f5f9', border: 'none',
+                    borderRadius: 9, cursor: 'pointer', fontSize: 14, fontWeight: 600, color: '#475569',
+                  }}
+                >
                   Cancel
                 </button>
-                <button type="submit" style={{
-                  flex: 1, padding: '11px', background: '#2563eb', color: '#fff',
-                  border: 'none', borderRadius: 9, cursor: 'pointer', fontSize: 14, fontWeight: 700,
-                }}>
+                <button 
+                  type="submit" 
+                  style={{
+                    flex: 1, padding: '11px', background: '#2563eb', color: '#fff',
+                    border: 'none', borderRadius: 9, cursor: 'pointer', fontSize: 14, fontWeight: 700,
+                  }}
+                >
                   {editingProduct ? 'Update Product' : 'Add Product'}
                 </button>
               </div>
@@ -525,7 +600,16 @@ const Products = () => {
               <h3 style={{ fontSize: 18, fontWeight: 800, margin: 0, color: '#0f172a' }}>
                 Manage Categories
               </h3>
-              <button onClick={() => setShowCategoryModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: '#94a3b8' }}>×</button>
+              <button 
+                onClick={() => {
+                  setShowCategoryModal(false);
+                  setEditingCategory(null);
+                  setCategoryForm(emptyCategory);
+                }} 
+                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: '#94a3b8' }}
+              >
+                ×
+              </button>
             </div>
 
             {/* Category List */}
