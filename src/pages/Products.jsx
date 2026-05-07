@@ -1,3 +1,4 @@
+// src/pages/Products.jsx
 import React, { useState, useEffect, useCallback } from 'react';
 import { products as productsApi, categories as categoriesApi } from '../services/api';
 
@@ -26,12 +27,14 @@ const Products = () => {
   const [categories, setCategories] = useState([]);
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [filterCategory, setFilterCategory] = useState('all');
   const [showModal, setShowModal] = useState(false);
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
-  const [showHistory, setShowHistory] = useState(null);
-  const [isMobile, setIsMobile] = useState(false);
+  const [editingCategory, setEditingCategory] = useState(null);
   const [loading, setLoading] = useState(true);
   const [updatingStock, setUpdatingStock] = useState(null);
+  const [categoryLoading, setCategoryLoading] = useState(false);
 
   const emptyForm = {
     name: '',
@@ -46,6 +49,12 @@ const Products = () => {
   };
   const [form, setForm] = useState(emptyForm);
 
+  const emptyCategory = {
+    name: '',
+    sort_order: 0,
+  };
+  const [categoryForm, setCategoryForm] = useState(emptyCategory);
+
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
@@ -56,7 +65,7 @@ const Products = () => {
       setProducts(productsRes.data.data.data || []);
       setCategories(categoriesRes.data.data || []);
     } catch (error) {
-      console.error('Failed to fetch products:', error);
+      console.error('Failed to fetch data:', error);
     } finally {
       setLoading(false);
     }
@@ -64,13 +73,80 @@ const Products = () => {
 
   useEffect(() => {
     fetchData();
-    const check = () => setIsMobile(window.innerWidth < 768);
-    check();
-    window.addEventListener('resize', check);
-    return () => window.removeEventListener('resize', check);
   }, [fetchData]);
 
-  const handleCreate = async (e) => {
+  // Category CRUD operations
+  const handleCreateCategory = async (e) => {
+    e.preventDefault();
+    setCategoryLoading(true);
+    try {
+      const response = await categoriesApi.create(categoryForm);
+      setCategories([...categories, response.data.data]);
+      setShowCategoryModal(false);
+      setCategoryForm(emptyCategory);
+    } catch (error) {
+      console.error('Failed to create category:', error);
+      alert(error.response?.data?.message || 'Failed to create category');
+    } finally {
+      setCategoryLoading(false);
+    }
+  };
+
+  const handleUpdateCategory = async (e) => {
+    e.preventDefault();
+    setCategoryLoading(true);
+    try {
+      const response = await categoriesApi.update(editingCategory.id, categoryForm);
+      setCategories(categories.map(c => c.id === editingCategory.id ? response.data.data : c));
+      setShowCategoryModal(false);
+      setEditingCategory(null);
+      setCategoryForm(emptyCategory);
+    } catch (error) {
+      console.error('Failed to update category:', error);
+      alert(error.response?.data?.message || 'Failed to update category');
+    } finally {
+      setCategoryLoading(false);
+    }
+  };
+
+  const handleDeleteCategory = async (id) => {
+    const category = categories.find(c => c.id === id);
+    const productCount = category.products_count || 0;
+    
+    let message = `Delete category "${category.name}"?`;
+    if (productCount > 0) {
+      message = `Category "${category.name}" has ${productCount} product(s). They will become uncategorized. Are you sure?`;
+    }
+    
+    if (!window.confirm(message)) return;
+    
+    try {
+      await categoriesApi.delete(id);
+      setCategories(categories.filter(c => c.id !== id));
+      // Refresh products as some may become uncategorized
+      fetchData();
+    } catch (error) {
+      console.error('Failed to delete category:', error);
+      alert('Failed to delete category');
+    }
+  };
+
+  const openCategoryModal = (category = null) => {
+    if (category) {
+      setEditingCategory(category);
+      setCategoryForm({
+        name: category.name,
+        sort_order: category.sort_order || 0,
+      });
+    } else {
+      setEditingCategory(null);
+      setCategoryForm(emptyCategory);
+    }
+    setShowCategoryModal(true);
+  };
+
+  // Product CRUD operations
+  const handleCreateProduct = async (e) => {
     e.preventDefault();
     try {
       const submitData = {
@@ -91,7 +167,7 @@ const Products = () => {
     }
   };
 
-  const handleUpdate = async (e) => {
+  const handleUpdateProduct = async (e) => {
     e.preventDefault();
     try {
       const submitData = {
@@ -112,7 +188,7 @@ const Products = () => {
     }
   };
 
-  const handleDelete = async (id) => {
+  const handleDeleteProduct = async (id) => {
     if (!window.confirm('Delete this product? This action cannot be undone.')) return;
     try {
       await productsApi.delete(id);
@@ -137,7 +213,7 @@ const Products = () => {
     }
   };
 
-  const openModal = (product = null) => {
+  const openProductModal = (product = null) => {
     if (product) {
       setEditingProduct(product);
       setForm({
@@ -158,17 +234,20 @@ const Products = () => {
     setShowModal(true);
   };
 
+  // Filters
   const filtered = products.filter(p => {
     const matchSearch = search === '' || 
       p.name.toLowerCase().includes(search.toLowerCase()) ||
       (p.category?.name || '').toLowerCase().includes(search.toLowerCase());
+    
+    const matchCategory = filterCategory === 'all' || p.category_id === parseInt(filterCategory);
     
     let matchStatus = true;
     if (filterStatus === 'low') matchStatus = p.is_low_stock && p.stock_quantity > 0;
     else if (filterStatus === 'out') matchStatus = p.stock_quantity === 0;
     else if (filterStatus === 'ok') matchStatus = !p.is_low_stock && p.stock_quantity > 0;
     
-    return matchSearch && matchStatus;
+    return matchSearch && matchStatus && matchCategory;
   });
 
   const statusCounts = {
@@ -195,18 +274,20 @@ const Products = () => {
 
   return (
     <div>
+      {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18, flexWrap: 'wrap', gap: 12 }}>
         <div>
           <h2 style={{ fontSize: 20, fontWeight: 800, margin: 0, color: '#0f172a' }}>Products</h2>
           <p style={{ fontSize: 13, color: '#64748b', marginTop: 3, marginBottom: 0 }}>{products.length} total items</p>
         </div>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          <input
-            type="text" placeholder="Search name, category…"
-            value={search} onChange={e => setSearch(e.target.value)}
-            style={{ padding: '9px 14px', border: '1.5px solid #e5e7eb', borderRadius: 10, fontSize: 13, width: 220, color: '#0f172a', outline: 'none' }}
-          />
-          <button onClick={() => openModal()} style={{
+          <button onClick={() => openCategoryModal()} style={{
+            background: '#10b981', color: '#fff', border: 'none', borderRadius: 10,
+            padding: '9px 20px', fontWeight: 700, cursor: 'pointer', fontSize: 13,
+          }}>
+            + Manage Categories
+          </button>
+          <button onClick={() => openProductModal()} style={{
             background: '#2563eb', color: '#fff', border: 'none', borderRadius: 10,
             padding: '9px 20px', fontWeight: 700, cursor: 'pointer', fontSize: 13,
           }}>
@@ -215,6 +296,26 @@ const Products = () => {
         </div>
       </div>
 
+      {/* Search and Filters */}
+      <div style={{ marginBottom: 16, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+        <input
+          type="text" placeholder="Search products…"
+          value={search} onChange={e => setSearch(e.target.value)}
+          style={{ padding: '9px 14px', border: '1.5px solid #e5e7eb', borderRadius: 10, fontSize: 13, flex: 1, minWidth: 200 }}
+        />
+        
+        <select value={filterCategory} onChange={e => setFilterCategory(e.target.value)} style={{
+          padding: '9px 14px', border: '1.5px solid #e5e7eb', borderRadius: 10, fontSize: 13,
+          background: '#fff', cursor: 'pointer',
+        }}>
+          <option value="all">All Categories</option>
+          {categories.map(cat => (
+            <option key={cat.id} value={cat.id}>{cat.name} ({cat.products_count || 0})</option>
+          ))}
+        </select>
+      </div>
+
+      {/* Status Filter Tabs */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
         {[['all', 'All'], ['ok', 'In Stock'], ['low', 'Low Stock'], ['out', 'Out of Stock']].map(([val, label]) => (
           <button key={val} onClick={() => setFilterStatus(val)} style={{
@@ -229,6 +330,7 @@ const Products = () => {
         ))}
       </div>
 
+      {/* Products Table */}
       {products.length === 0 ? (
         <div style={{
           background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14,
@@ -237,7 +339,7 @@ const Products = () => {
           <div style={{ fontSize: 48, marginBottom: 16 }}>📦</div>
           <h3 style={{ fontSize: 18, fontWeight: 700, color: '#0f172a', marginBottom: 8 }}>No Products Yet</h3>
           <p style={{ fontSize: 14, color: '#64748b', marginBottom: 20 }}>Add your first product to start tracking inventory</p>
-          <button onClick={() => openModal()} style={{
+          <button onClick={() => openProductModal()} style={{
             background: '#2563eb', color: '#fff', border: 'none', borderRadius: 10,
             padding: '11px 26px', fontWeight: 700, cursor: 'pointer', fontSize: 14,
           }}>
@@ -252,7 +354,7 @@ const Products = () => {
                 {['Product', 'Category', 'Stock', 'Price', 'Expiry', 'Status', 'Actions'].map(h => (
                   <th key={h} style={{ padding: '12px 14px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#64748b' }}>{h}</th>
                 ))}
-              </tr>
+              <tr>
             </thead>
             <tbody>
               {filtered.map(p => {
@@ -267,7 +369,9 @@ const Products = () => {
                       <div style={{ fontWeight: 700, color: '#0f172a' }}>{p.name}</div>
                       {p.description && <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>{p.description.slice(0, 50)}</div>}
                     </td>
-                    <td style={{ padding: '13px 14px', color: '#475569' }}>{p.category?.name || '—'}</td>
+                    <td style={{ padding: '13px 14px', color: '#475569' }}>
+                      {p.category?.name || <span style={{ color: '#94a3b8' }}>Uncategorized</span>}
+                    </td>
                     <td style={{ padding: '13px 14px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <input
@@ -299,8 +403,8 @@ const Products = () => {
                     </td>
                     <td style={{ padding: '13px 14px' }}>
                       <div style={{ display: 'flex', gap: 10 }}>
-                        <button onClick={() => openModal(p)} style={{ background: 'none', border: 'none', color: '#2563eb', cursor: 'pointer', fontSize: 12, fontWeight: 600, padding: 0 }}>Edit</button>
-                        <button onClick={() => handleDelete(p.id)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: 12, fontWeight: 600, padding: 0 }}>Delete</button>
+                        <button onClick={() => openProductModal(p)} style={{ background: 'none', border: 'none', color: '#2563eb', cursor: 'pointer', fontSize: 12, fontWeight: 600, padding: 0 }}>Edit</button>
+                        <button onClick={() => handleDeleteProduct(p.id)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: 12, fontWeight: 600, padding: 0 }}>Delete</button>
                       </div>
                     </td>
                   </tr>
@@ -310,12 +414,13 @@ const Products = () => {
           </table>
           {filtered.length === 0 && (
             <div style={{ padding: '40px', textAlign: 'center', color: '#94a3b8', fontSize: 14 }}>
-              No products match your search.
+              No products match your filters.
             </div>
           )}
         </div>
       )}
 
+      {/* Product Modal */}
       {showModal && (
         <div style={{
           position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
@@ -333,7 +438,7 @@ const Products = () => {
               <button onClick={() => setShowModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: '#94a3b8' }}>×</button>
             </div>
 
-            <form onSubmit={editingProduct ? handleUpdate : handleCreate}>
+            <form onSubmit={editingProduct ? handleUpdateProduct : handleCreateProduct}>
               <div style={{ marginBottom: 14 }}>
                 <label style={labelStyle}>Product Name *</label>
                 <input type="text" required value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} style={inputStyle} />
@@ -398,6 +503,114 @@ const Products = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Category Management Modal */}
+      {showCategoryModal && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20,
+        }}>
+          <div style={{
+            background: '#fff', borderRadius: 16, padding: 28,
+            width: '100%', maxWidth: 500, maxHeight: '90vh', overflowY: 'auto',
+            boxShadow: '0 20px 50px rgba(0,0,0,0.2)',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 22 }}>
+              <h3 style={{ fontSize: 18, fontWeight: 800, margin: 0, color: '#0f172a' }}>
+                Manage Categories
+              </h3>
+              <button onClick={() => setShowCategoryModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: '#94a3b8' }}>×</button>
+            </div>
+
+            {/* Category List */}
+            <div style={{ marginBottom: 24 }}>
+              <h4 style={{ fontSize: 14, fontWeight: 700, color: '#64748b', marginBottom: 12 }}>Your Categories</h4>
+              {categories.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '30px', color: '#94a3b8', background: '#f8fafc', borderRadius: 10 }}>
+                  No categories yet. Create your first category below.
+                </div>
+              ) : (
+                <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, overflow: 'hidden' }}>
+                  {categories.map((cat, idx) => (
+                    <div key={cat.id} style={{
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                      padding: '12px 16px', borderBottom: idx < categories.length - 1 ? '1px solid #e2e8f0' : 'none',
+                      background: '#fff',
+                    }}>
+                      <div>
+                        <div style={{ fontWeight: 600, color: '#0f172a' }}>{cat.name}</div>
+                        <div style={{ fontSize: 11, color: '#94a3b8' }}>{cat.products_count || 0} products</div>
+                      </div>
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <button onClick={() => openCategoryModal(cat)} style={{
+                          background: 'none', border: 'none', color: '#2563eb', cursor: 'pointer', fontSize: 12, fontWeight: 600,
+                        }}>
+                          Edit
+                        </button>
+                        <button onClick={() => handleDeleteCategory(cat.id)} style={{
+                          background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: 12, fontWeight: 600,
+                        }}>
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Add/Edit Category Form */}
+            <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: 20 }}>
+              <h4 style={{ fontSize: 14, fontWeight: 700, color: '#64748b', marginBottom: 12 }}>
+                {editingCategory ? 'Edit Category' : 'Create New Category'}
+              </h4>
+              <form onSubmit={editingCategory ? handleUpdateCategory : handleCreateCategory}>
+                <div style={{ marginBottom: 12 }}>
+                  <label style={labelStyle}>Category Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={categoryForm.name}
+                    onChange={e => setCategoryForm({ ...categoryForm, name: e.target.value })}
+                    style={inputStyle}
+                    placeholder="e.g., Fresh Produce, Dairy, Bakery"
+                  />
+                </div>
+                <div style={{ marginBottom: 16 }}>
+                  <label style={labelStyle}>Sort Order (optional)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={categoryForm.sort_order}
+                    onChange={e => setCategoryForm({ ...categoryForm, sort_order: parseInt(e.target.value) || 0 })}
+                    style={inputStyle}
+                    placeholder="0 = first"
+                  />
+                </div>
+                <div style={{ display: 'flex', gap: 10 }}>
+                  {editingCategory && (
+                    <button type="button" onClick={() => {
+                      setEditingCategory(null);
+                      setCategoryForm(emptyCategory);
+                    }} style={{
+                      padding: '10px 16px', background: '#f1f5f9', border: 'none',
+                      borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600, color: '#475569',
+                    }}>
+                      Cancel Edit
+                    </button>
+                  )}
+                  <button type="submit" disabled={categoryLoading} style={{
+                    flex: 1, padding: '10px 16px', background: categoryLoading ? '#93c5fd' : '#10b981', color: '#fff',
+                    border: 'none', borderRadius: 8, cursor: categoryLoading ? 'not-allowed' : 'pointer', fontSize: 13, fontWeight: 700,
+                  }}>
+                    {categoryLoading ? 'Saving...' : (editingCategory ? 'Update Category' : 'Create Category')}
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
       )}
