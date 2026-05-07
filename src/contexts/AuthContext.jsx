@@ -1,3 +1,4 @@
+// src/contexts/AuthContext.jsx
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { auth, retailer } from '../services/api';
 
@@ -17,19 +18,20 @@ export const AuthProvider = ({ children }) => {
       
       if (token && storedUser) {
         setUser(JSON.parse(storedUser));
+        const storedRetailer = localStorage.getItem('smartshelf_retailer');
+        if (storedRetailer) {
+          setRetailerProfile(JSON.parse(storedRetailer));
+        }
         try {
           const response = await auth.me();
-          setUser(response.data.user);
-          setRetailerProfile(response.data.retailer);
-          localStorage.setItem('smartshelf_user', JSON.stringify(response.data.user));
-          localStorage.setItem('smartshelf_retailer', JSON.stringify(response.data.retailer));
+          if (response.data.user) {
+            setUser(response.data.user);
+            setRetailerProfile(response.data.retailer);
+            localStorage.setItem('smartshelf_user', JSON.stringify(response.data.user));
+            localStorage.setItem('smartshelf_retailer', JSON.stringify(response.data.retailer));
+          }
         } catch (error) {
           console.error('Auth check failed:', error);
-          localStorage.removeItem('smartshelf_token');
-          localStorage.removeItem('smartshelf_user');
-          localStorage.removeItem('smartshelf_retailer');
-          setUser(null);
-          setRetailerProfile(null);
         }
       }
       setLoading(false);
@@ -77,6 +79,8 @@ export const AuthProvider = ({ children }) => {
       let message = 'Registration failed. Please try again.';
       if (errors) {
         message = Object.values(errors).flat().join(', ');
+      } else if (error.response?.data?.message) {
+        message = error.response.data.message;
       }
       return { success: false, error: message };
     }
@@ -126,18 +130,20 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const value = {
+    user,
+    retailer: retailerProfile,
+    loading,
+    login,
+    signup,
+    logout,
+    updateProfile,
+    refreshProfile,
+    isAuthenticated: !!user,
+  };
+
   return (
-    <AuthContext.Provider value={{
-      user,
-      retailer: retailerProfile,
-      loading,
-      login,
-      signup,
-      logout,
-      updateProfile,
-      refreshProfile,
-      isAuthenticated: !!user,
-    }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );
